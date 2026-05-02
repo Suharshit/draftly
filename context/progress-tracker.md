@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Prepare for the next feature unit after completing `02-editor.md`.
+- Complete `03-auth.md` with Clerk provider setup, route protection, and auth entry flows.
 
 ## Completed
 
@@ -23,6 +23,16 @@ Update this file whenever the current phase, active feature, or implementation s
     - Added `components/editor/project-sidebar.tsx`
     - Added `components/editor/editor-dialog-shell.tsx` for reusable dialog title/description/footer pattern
     - Added `components/editor/editor-shell.tsx` and integrated it in `app/page.tsx`
+- Feature spec `03-auth.md` completed:
+    - Wrapped root layout in `ClerkProvider` with `@clerk/ui/themes` `dark` base theme and CSS-variable appearance overrides
+    - Added `proxy.ts` route protection using Clerk middleware, with auth pages as public routes and all other routes protected
+    - Added Clerk auth route group with shared layout:
+      - `app/(auth)/layout.tsx` for two-panel desktop layout and form-only mobile layout
+      - `app/(auth)/sign-in/[[...sign-in]]/page.tsx`
+      - `app/(auth)/sign-up/[[...sign-up]]/page.tsx`
+    - Updated `/` behavior to redirect authenticated users to `/editor` and unauthenticated users to `/sign-in`
+    - Added `app/editor/page.tsx` and moved editor shell rendering there
+    - Added Clerk `UserButton` to the editor navbar right section
 
 ## In Progress
 
@@ -30,7 +40,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Select and implement the next feature spec unit.
+- Select and implement the next feature spec unit after `03-auth.md`.
 
 ## Open Questions
 
@@ -41,6 +51,7 @@ Update this file whenever the current phase, active feature, or implementation s
 - shadcn/ui over Tailwind v4 (CSS-based token config via @theme inline in global.css, no tailwind.config.js)
 - Dark-only theme: all shadcn :root variables set to dark values directly - no .dark class switching.
 - Do not modify generated components/ui/* files after shadcn installation.
+- Route protection baseline uses `proxy.ts` (Next.js 16 convention) with Clerk middleware and public auth path exceptions.
 
 ## Session Notes
 
@@ -52,3 +63,12 @@ Update this file whenever the current phase, active feature, or implementation s
 - Validation checks:
     - `pnpm lint` passed
     - `pnpm build` blocked in current environment due to `EPERM` on `.next/trace`
+- Implemented `03-auth.md` on 2026-05-03.
+- Validation checks for `03-auth.md`:
+    - `pnpm lint` passed
+    - `pnpm build` passed
+- Post-implementation adjustment for `03-auth.md`:
+    - Replaced component-level auth wrapper with an App Router `(auth)` route group layout to guarantee shared two-panel auth page structure.
+    - Added targeted Clerk social auth button appearance overrides to restore readable contrast for GitHub/Google actions in dark theme.
+    - Refined auth left panel visual style to match the requested step-card hero composition while preserving existing copy and token-based theming.
+    - Adjusted auth split layout to true 50/50 panel proportions and centered right-side form container on both axes.

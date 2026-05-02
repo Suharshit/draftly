@@ -51,4 +51,4 @@ Update this file whenever the current phase, active feature, or implementation s
 - Implemented `02-editor.md` on 2026-05-03.
 - Validation checks:
     - `pnpm lint` passed
-    - `pnpm build` blocked in current environment due to `EPERM` on `E:\\ghostai\\.next\\trace`
+    - `pnpm build` blocked in current environment due to `EPERM` on `.next/trace`

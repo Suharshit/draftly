@@ -18,7 +18,7 @@ export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
         "fixed top-14 bottom-4 left-4 z-40 flex w-72 flex-col rounded-md border border-border bg-card shadow-lg transition-transform duration-200 ease-out",
         isOpen ? "translate-x-0" : "-translate-x-[calc(100%+1rem)]"
       )}
-      aria-hidden={!isOpen}
+      inert={!isOpen || undefined}
     >
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <h2 className="text-sm font-medium text-foreground">Projects</h2>

@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Prepare for the next feature unit after completing design-system foundations.
+- Prepare for the next feature unit after completing `02-editor.md`.
 
 ## Completed
 
@@ -18,6 +18,11 @@ Update this file whenever the current phase, active feature, or implementation s
     - `lucide-react` installed
     - Shared `cn()` utility available in `lib/utils.ts`
     - Dark-only theme tokens aligned in `app/globals.css`
+- Feature spec `02-editor.md` completed:
+    - Added `components/editor/editor-navbar.tsx`
+    - Added `components/editor/project-sidebar.tsx`
+    - Added `components/editor/editor-dialog-shell.tsx` for reusable dialog title/description/footer pattern
+    - Added `components/editor/editor-shell.tsx` and integrated it in `app/page.tsx`
 
 ## In Progress
 
@@ -43,3 +48,7 @@ Update this file whenever the current phase, active feature, or implementation s
 - Validation checks passed:
     - `pnpm lint`
     - `pnpm build`
+- Implemented `02-editor.md` on 2026-05-03.
+- Validation checks:
+    - `pnpm lint` passed
+    - `pnpm build` blocked in current environment due to `EPERM` on `.next/trace`

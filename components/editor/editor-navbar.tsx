@@ -33,3 +33,4 @@ export function EditorNavbar({ isSidebarOpen, onToggleSidebar }: EditorNavbarPro
     </header>
   );
 }
+

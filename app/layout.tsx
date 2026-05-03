@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
+import { dark } from "@clerk/ui/themes";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -27,7 +29,48 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <ClerkProvider
+          appearance={{
+            theme: dark,
+            variables: {
+              colorBackground: "var(--bg-base)",
+              colorInput: "var(--bg-surface)",
+              colorInputForeground: "var(--text-primary)",
+              colorForeground: "var(--text-primary)",
+              colorMutedForeground: "var(--text-muted)",
+              colorNeutral: "var(--border-default)",
+              colorPrimary: "var(--accent-primary)",
+              colorDanger: "var(--state-error)",
+              colorSuccess: "var(--state-success)",
+              colorBorder: "var(--border-default)",
+              colorRing: "var(--accent-primary)",
+              borderRadius: "0.5rem",
+            },
+            elements: {
+              socialButtonsBlockButton: {
+                backgroundColor: "var(--bg-surface)",
+                borderColor: "var(--border-default)",
+                color: "var(--text-primary)",
+                opacity: "1",
+              },
+              '&:hover': {
+                backgroundColor: "var(--bg-base)",
+                color: "var(--text-primary)",
+              },
+              socialButtonsBlockButtonText: {
+                color: "var(--text-primary)",
+                opacity: "1",
+              },
+              socialButtonsProviderIcon: {
+                opacity: "1",
+              },
+            },
+          }}
+        >
+          {children}
+        </ClerkProvider>
+      </body>
     </html>
   );
 }

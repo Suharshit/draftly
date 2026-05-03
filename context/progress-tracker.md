@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Complete the next feature spec unit after `04-project-dialogs.md`.
+- Complete the next feature spec unit after `05-prisma.md`.
 
 ## Completed
 
@@ -52,6 +52,17 @@ Update this file whenever the current phase, active feature, or implementation s
       - No actions for shared/collaborator projects
       - Mobile backdrop scrim and tap-outside-to-close behavior
       - Sidebar `New Project` wired to Create dialog
+- Feature spec `05-prisma.md` completed:
+    - Added Prisma project models in `prisma/models/project.prisma`:
+      - `Project` with owner mapping (`ownerId`), name, optional description, `ProjectStatus` enum (`DRAFT`, `ARCHIVED`), optional `canvasJsonPath`, timestamps, and indexes on owner and creation date
+      - `ProjectCollaborator` with project relation, cascade delete, collaborator email, created timestamp, unique constraint on project/email, and required indexes
+    - Added cached Prisma singleton in `lib/prisma.ts`:
+      - Uses Accelerate path when `DATABASE_URL` starts with `prism+postgres://`
+      - Uses direct `@prisma/adapter-pg` path otherwise
+      - Caches instance on `globalThis` in development to avoid hot-reload client churn
+    - Created and applied initial migration:
+      - `prisma/migrations/20260503143051_init_project_models/migration.sql`
+    - Regenerated Prisma client in `app/generated/prisma`
 
 ## In Progress
 
@@ -59,7 +70,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Select and implement the next feature spec unit after `04-project-dialogs.md`.
+- Select and implement the next feature spec unit after `05-prisma.md`.
 
 ## Open Questions
 
@@ -99,3 +110,8 @@ Update this file whenever the current phase, active feature, or implementation s
     - Ensured editor home heading/description/button remain centered using a viewport-aware content height in editor home section.
     - Added pointer cursor behavior to shared button primitive so buttons show pointer on hover consistently.
     - Introduced root `hooks/` folder and moved project dialog hook to `hooks/use-project-dialogs.ts` (left compatibility re-export at `components/editor/use-project-dialogs.ts`).
+- Implemented `05-prisma.md` on 2026-05-03.
+- Validation checks for `05-prisma.md`:
+    - `pnpm prisma migrate dev --name init_project_models` passed
+    - `pnpm prisma generate` passed
+    - `pnpm build` passed

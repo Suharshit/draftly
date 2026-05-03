@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { GhostIcon } from "lucide-react";
+import { Ghost } from "lucide-react";
 
 const FEATURE_POINTS = [
   "Real-time architecture canvas collaboration",
@@ -22,7 +22,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           />
           <div className="relative">
             <div className="flex items-center space-x-1">
-              <GhostIcon className="h-8 w-8 text-muted-foreground" />
+              <Ghost className="h-8 w-8 text-muted-foreground" />
               <p className="text-lg font-semibold uppercase tracking-wide text-muted-foreground">Ghost AI</p>
             </div>
           </div>

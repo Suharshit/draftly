@@ -54,7 +54,7 @@ export default function RootLayout({
                 color: "var(--text-primary)",
                 opacity: "1",
               },
-              socialButtonsBlockButton__hover: {
+              '&:hover': {
                 backgroundColor: "var(--bg-base)",
                 color: "var(--text-primary)",
               },

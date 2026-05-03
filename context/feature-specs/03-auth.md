@@ -12,9 +12,7 @@ Override Clerk appearance variables using the app's existing CSS variables. Do n
 - left: compact logo, tagline, short text-only feature list
 - right: centered Clerk form
 - small screens: form only
-- no gradients
 - no oversized hero sections
-- no feature cards
 - no scroll-heavy layouts
 
 keep the layout minimal and professional.
@@ -36,7 +34,7 @@ Update `/`:
 
 Add Clerk's built-in `UserButton` to the editor navbar right section for profile settings and logout.
 
-Keep Clerk's default user menu and profile flows intact. Do not rebuild or heavily cutomize Clerk internals.
+Keep Clerk's default user menu and profile flows intact. Do not rebuild or heavily customize Clerk internals.
 
 Use existing Clerk env vars. Do not rename or invent new ones.
 

@@ -7,7 +7,7 @@ import { EditorDialogShell } from "@/components/editor/editor-dialog-shell";
 interface ProjectDialogsProps {
   activeDialog: "create" | "rename" | "delete" | null;
   projectName: string;
-  projectSlugPreview: string;
+  roomIdPreview: string;
   selectedProjectName: string | null;
   isLoading: boolean;
   onProjectNameChange: (value: string) => void;
@@ -20,7 +20,7 @@ interface ProjectDialogsProps {
 export function ProjectDialogs({
   activeDialog,
   projectName,
-  projectSlugPreview,
+  roomIdPreview,
   selectedProjectName,
   isLoading,
   onProjectNameChange,
@@ -47,7 +47,7 @@ export function ProjectDialogs({
             <Button type="button" variant="ghost" onClick={onClose} disabled={isLoading}>
               Cancel
             </Button>
-            <Button type="submit" form="create-project-form" disabled={isLoading || projectName.trim().length === 0}>
+            <Button type="submit" form="create-project-form" disabled={isLoading}>
               Create
             </Button>
           </>
@@ -74,7 +74,7 @@ export function ProjectDialogs({
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            Slug preview: <span className="font-mono text-foreground">{projectSlugPreview || "untitled-project"}</span>
+            Room ID preview: <span className="font-mono text-foreground">{roomIdPreview}</span>
           </p>
         </form>
       </EditorDialogShell>

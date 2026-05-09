@@ -6,18 +6,22 @@ import { Plus } from "lucide-react";
 import { EditorNavbar } from "@/components/editor/editor-navbar";
 import { ProjectDialogs } from "@/components/editor/project-dialogs";
 import { ProjectSidebar } from "@/components/editor/project-sidebar";
-import { useProjectDialogs } from "@/hooks/use-project-dialogs";
+import { useProjectActions } from "@/hooks/use-project-actions";
+import type { SidebarProject } from "@/lib/project-data";
 import { Button } from "@/components/ui/button";
 
-export function EditorShell() {
+interface EditorShellProps {
+  ownedProjects: SidebarProject[];
+  sharedProjects: SidebarProject[];
+}
+
+export function EditorShell({ ownedProjects, sharedProjects }: EditorShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const {
-    myProjects,
-    sharedProjects,
     activeDialog,
     selectedProject,
     projectName,
-    projectSlugPreview,
+    roomIdPreview,
     isLoading,
     setProjectName,
     openCreateDialog,
@@ -27,7 +31,7 @@ export function EditorShell() {
     submitCreate,
     submitRename,
     submitDelete,
-  } = useProjectDialogs();
+  } = useProjectActions(ownedProjects, sharedProjects);
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
@@ -36,7 +40,7 @@ export function EditorShell() {
         <ProjectSidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
-          myProjects={myProjects}
+          myProjects={ownedProjects}
           sharedProjects={sharedProjects}
           onCreateProject={openCreateDialog}
           onRenameProject={openRenameDialog}
@@ -59,7 +63,7 @@ export function EditorShell() {
       <ProjectDialogs
         activeDialog={activeDialog}
         projectName={projectName}
-        projectSlugPreview={projectSlugPreview}
+        roomIdPreview={roomIdPreview}
         selectedProjectName={selectedProject?.name ?? null}
         isLoading={isLoading}
         onProjectNameChange={setProjectName}

@@ -4,14 +4,14 @@ import { Pencil, Plus, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { ProjectItem } from "@/hooks/use-project-dialogs";
+import type { SidebarProject } from "@/lib/project-data";
 import { cn } from "@/lib/utils";
 
 interface ProjectSidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  myProjects: ProjectItem[];
-  sharedProjects: ProjectItem[];
+  myProjects: SidebarProject[];
+  sharedProjects: SidebarProject[];
   onCreateProject: () => void;
   onRenameProject: (projectId: string) => void;
   onDeleteProject: (projectId: string) => void;
@@ -72,7 +72,7 @@ export function ProjectSidebar({
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-foreground">{project.name}</p>
-                      <p className="truncate text-xs font-mono text-muted-foreground">{project.slug}</p>
+                      <p className="truncate text-xs font-mono text-muted-foreground">{project.roomId}</p>
                     </div>
                     {project.isOwned ? (
                       <div className="ml-2 flex items-center">
@@ -110,7 +110,7 @@ export function ProjectSidebar({
                 sharedProjects.map((project) => (
                   <div key={project.id} className="rounded-sm border border-border bg-background/50 px-3 py-2">
                     <p className="truncate text-sm font-medium text-foreground">{project.name}</p>
-                    <p className="truncate text-xs font-mono text-muted-foreground">{project.slug}</p>
+                    <p className="truncate text-xs font-mono text-muted-foreground">{project.roomId}</p>
                   </div>
                 ))
               )}

@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Complete the next feature spec unit after `06-project-apis.md`.
+- Complete the next feature spec unit after `07-wire-editor-home.md`.
 
 ## Completed
 
@@ -74,6 +74,35 @@ Update this file whenever the current phase, active feature, or implementation s
       - Non-owner rename/delete requests return `403` with `{ error: "Forbidden" }`
     - Applied create/rename name defaulting:
       - Missing/blank `name` resolves to `Untitled Project`
+- Feature spec `07-wire-editor-home.md` completed:
+    - Wired editor home initial project lists to real server-side data in `app/editor/page.tsx`:
+      - Uses Clerk auth server-side
+      - Fetches owned and shared projects via project data helper
+      - Passes both lists into editor sidebar wiring (no client-side initial fetch)
+    - Added server project data helper in `lib/project-data.ts`:
+      - Returns owned and shared sidebar project lists
+      - Shared projects are resolved via `ProjectCollaborator.collaboratorEmail`
+    - Added `hooks/use-project-actions.ts` for dialog state + API mutations:
+      - Create:
+        - Manages create dialog state and project name input
+        - Generates short unique suffix and slug-based room ID preview
+        - Calls `POST /api/projects`
+        - Navigates to new workspace route after success
+      - Rename:
+        - Stores target project id + current name
+        - Calls `PATCH /api/projects/[id]`
+        - Refreshes on success
+      - Delete:
+        - Stores target project
+        - Calls `DELETE /api/projects/[id]`
+        - Redirects to `/editor` when deleting active workspace
+        - Otherwise refreshes
+    - Updated component wiring:
+      - `components/editor/editor-shell.tsx` now consumes server-provided project lists and the new hook
+      - `components/editor/project-sidebar.tsx` now renders real `roomId` values
+      - `components/editor/project-dialogs.tsx` now shows room ID preview and preserves rename/delete dialog behavior
+    - Updated create API to keep project ID aligned with room ID when provided:
+      - `app/api/projects/route.ts` accepts optional `id` from request body and persists it
 
 ## In Progress
 
@@ -81,7 +110,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Select and implement the next feature spec unit after `06-project-apis.md`.
+- Select and implement the next feature spec unit after `07-wire-editor-home.md`.
 
 ## Open Questions
 
@@ -133,6 +162,17 @@ Update this file whenever the current phase, active feature, or implementation s
     - Fixed Prisma client typing in `lib/prisma.ts` to avoid union-call signature failures in route handlers when using Accelerate extension branch.
     - Added `typecheck` script to `package.json` (`tsc --noEmit`) for parity with `lint` and `build`.
     - Updated CI type-check step in `.github/workflows/ci.yml` to run `pnpm typecheck`.
+    - Validation checks:
+      - `pnpm typecheck` passed
+      - `pnpm lint` passed
+- Implemented `07-wire-editor-home.md` on 2026-05-11.
+- Validation checks for `07-wire-editor-home.md`:
+    - `pnpm typecheck` passed
+    - `pnpm lint` passed
+    - `pnpm build` failed in current environment due to `EPERM` on `.next/trace`
+- Applied workspace-route fix on 2026-05-11:
+    - Added missing dynamic route `app/editor/[projectId]/page.tsx` so post-create navigation to `/editor/{projectId}` resolves instead of 404.
+    - Added `canAccessProject()` in `lib/project-data.ts` and enforced workspace access before rendering.
     - Validation checks:
       - `pnpm typecheck` passed
       - `pnpm lint` passed

@@ -12,46 +12,6 @@ export interface ProjectSidebarData {
   sharedProjects: SidebarProject[];
 }
 
-export async function canAccessProject(
-  userId: string,
-  collaboratorEmail: string | null,
-  projectId: string,
-): Promise<boolean> {
-  const project = await prisma.project.findUnique({
-    where: {
-      id: projectId,
-    },
-    select: {
-      ownerId: true,
-      collaborators: collaboratorEmail
-        ? {
-            where: {
-              collaboratorEmail: collaboratorEmail.toLowerCase(),
-            },
-            select: {
-              id: true,
-            },
-            take: 1,
-          }
-        : false,
-    },
-  });
-
-  if (!project) {
-    return false;
-  }
-
-  if (project.ownerId === userId) {
-    return true;
-  }
-
-  if (!collaboratorEmail) {
-    return false;
-  }
-
-  return Array.isArray(project.collaborators) && project.collaborators.length > 0;
-}
-
 export async function getProjectSidebarData(
   userId: string,
   collaboratorEmail: string | null,

@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Complete the next feature spec unit after `07-wire-editor-home.md`.
+- Complete the next feature spec unit after `08-editor-workspace-shell.md`.
 
 ## Completed
 
@@ -103,6 +103,23 @@ Update this file whenever the current phase, active feature, or implementation s
       - `components/editor/project-dialogs.tsx` now shows room ID preview and preserves rename/delete dialog behavior
     - Updated create API to keep project ID aligned with room ID when provided:
       - `app/api/projects/route.ts` accepts optional `id` from request body and persists it
+- Feature spec `08-editor-workspace-shell.md` completed:
+    - Added `lib/project-access.ts` with server-side access helpers:
+      - `getCurrentIdentity()` for Clerk `userId` + primary email
+      - `getAccessibleProject()` for owner/collaborator project access validation
+    - Added `components/editor/access-denied.tsx` for unauthorized/missing workspace access states
+    - Added `components/editor/editor-workspace-shell.tsx`:
+      - Full-viewport workspace shell
+      - Top navbar with project name, share placeholder, and AI sidebar toggle
+      - Left `ProjectSidebar`, center canvas placeholder, and right AI sidebar placeholder
+    - Updated `app/editor/[projectId]/page.tsx`:
+      - Redirects unauthenticated users to `/sign-in`
+      - Renders `AccessDenied` for missing or unauthorized projects
+      - Renders workspace shell with active project context
+    - Updated `components/editor/project-sidebar.tsx`:
+      - Added project navigation links to `/editor/{roomId}`
+      - Added active project highlighting support
+    - Removed obsolete `canAccessProject()` from `lib/project-data.ts` (replaced by `lib/project-access.ts`)
 
 ## In Progress
 
@@ -110,7 +127,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Select and implement the next feature spec unit after `07-wire-editor-home.md`.
+- Select and implement the next feature spec unit after `08-editor-workspace-shell.md`.
 
 ## Open Questions
 
@@ -176,3 +193,4 @@ Update this file whenever the current phase, active feature, or implementation s
     - Validation checks:
       - `pnpm typecheck` passed
       - `pnpm lint` passed
+- Implemented `08-editor-workspace-shell.md` on 2026-05-11.

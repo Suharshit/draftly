@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Pencil, Plus, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ interface ProjectSidebarProps {
   onClose: () => void;
   myProjects: SidebarProject[];
   sharedProjects: SidebarProject[];
+  activeProjectId?: string;
   onCreateProject: () => void;
   onRenameProject: (projectId: string) => void;
   onDeleteProject: (projectId: string) => void;
@@ -22,6 +24,7 @@ export function ProjectSidebar({
   onClose,
   myProjects,
   sharedProjects,
+  activeProjectId,
   onCreateProject,
   onRenameProject,
   onDeleteProject,
@@ -68,12 +71,17 @@ export function ProjectSidebar({
                 myProjects.map((project) => (
                   <div
                     key={project.id}
-                    className="flex items-center justify-between rounded-sm border border-border bg-background/50 px-3 py-2"
+                    className={cn(
+                      "flex items-center justify-between rounded-sm border px-3 py-2 transition-colors",
+                      activeProjectId === project.id
+                        ? "border-accent-primary/60 bg-accent-primary/10"
+                        : "border-border bg-background/50",
+                    )}
                   >
-                    <div className="min-w-0">
+                    <Link href={`/editor/${project.roomId}`} className="min-w-0 flex-1 pr-2">
                       <p className="truncate text-sm font-medium text-foreground">{project.name}</p>
                       <p className="truncate text-xs font-mono text-muted-foreground">{project.roomId}</p>
-                    </div>
+                    </Link>
                     {project.isOwned ? (
                       <div className="ml-2 flex items-center">
                         <Button
@@ -108,10 +116,19 @@ export function ProjectSidebar({
                 </div>
               ) : (
                 sharedProjects.map((project) => (
-                  <div key={project.id} className="rounded-sm border border-border bg-background/50 px-3 py-2">
+                  <Link
+                    key={project.id}
+                    href={`/editor/${project.roomId}`}
+                    className={cn(
+                      "block rounded-sm border px-3 py-2 transition-colors",
+                      activeProjectId === project.id
+                        ? "border-accent-primary/60 bg-accent-primary/10"
+                        : "border-border bg-background/50",
+                    )}
+                  >
                     <p className="truncate text-sm font-medium text-foreground">{project.name}</p>
                     <p className="truncate text-xs font-mono text-muted-foreground">{project.roomId}</p>
-                  </div>
+                  </Link>
                 ))
               )}
             </TabsContent>

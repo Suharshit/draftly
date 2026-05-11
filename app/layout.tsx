@@ -53,10 +53,10 @@ export default function RootLayout({
                 borderColor: "var(--border-default)",
                 color: "var(--text-primary)",
                 opacity: "1",
-              },
-              '&:hover': {
-                backgroundColor: "var(--bg-base)",
-                color: "var(--text-primary)",
+                "&:hover": {
+                  backgroundColor: "var(--bg-base)",
+                  color: "var(--text-primary)",
+                },
               },
               socialButtonsBlockButtonText: {
                 color: "var(--text-primary)",
@@ -64,6 +64,28 @@ export default function RootLayout({
               },
               socialButtonsProviderIcon: {
                 opacity: "1",
+              },
+              userButtonPopoverCard: {
+                backgroundColor: "var(--bg-base)",
+                borderColor: "var(--border-default)",
+              },
+              userButtonPopoverActionButton: {
+                color: "var(--text-primary)",
+                opacity: "1",
+                "&:hover": {
+                  backgroundColor: "var(--bg-surface)",
+                  color: "var(--text-primary)",
+                },
+              },
+              userButtonPopoverActionButtonText: {
+                color: "var(--text-primary)",
+              },
+              userButtonPopoverActionButtonIcon: {
+                color: "var(--text-muted)",
+                opacity: "1",
+              },
+              userButtonPopoverFooter: {
+                borderTopColor: "var(--border-default)",
               },
             },
           }}

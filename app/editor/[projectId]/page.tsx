@@ -1,8 +1,9 @@
-import { notFound } from "next/navigation";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
-import { EditorShell } from "@/components/editor/editor-shell";
-import { canAccessProject, getProjectSidebarData } from "@/lib/project-data";
+import { AccessDenied } from "@/components/editor/access-denied";
+import { EditorWorkspaceShell } from "@/components/editor/editor-workspace-shell";
+import { getProjectSidebarData } from "@/lib/project-data";
+import { getAccessibleProject, getCurrentIdentity } from "@/lib/project-access";
 
 interface EditorWorkspacePageProps {
   params: Promise<{
@@ -11,23 +12,27 @@ interface EditorWorkspacePageProps {
 }
 
 export default async function EditorWorkspacePage({ params }: EditorWorkspacePageProps) {
-  const { userId } = await auth();
+  const identity = await getCurrentIdentity();
 
-  if (!userId) {
-    return null;
+  if (!identity.userId) {
+    redirect("/sign-in");
   }
 
-  const { projectId } = await params;
-  const user = await currentUser();
-  const collaboratorEmail = user?.primaryEmailAddress?.emailAddress ?? null;
+  const { projectId: roomId } = await params;
+  const project = await getAccessibleProject(identity.userId, identity.primaryEmail, roomId);
 
-  const hasAccess = await canAccessProject(userId, collaboratorEmail, projectId);
-
-  if (!hasAccess) {
-    notFound();
+  if (!project) {
+    return <AccessDenied />;
   }
 
-  const projectSidebarData = await getProjectSidebarData(userId, collaboratorEmail);
+  const projectSidebarData = await getProjectSidebarData(identity.userId, identity.primaryEmail);
 
-  return <EditorShell ownedProjects={projectSidebarData.ownedProjects} sharedProjects={projectSidebarData.sharedProjects} />;
+  return (
+    <EditorWorkspaceShell
+      projectId={project.id}
+      projectName={project.name}
+      ownedProjects={projectSidebarData.ownedProjects}
+      sharedProjects={projectSidebarData.sharedProjects}
+    />
+  );
 }

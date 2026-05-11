@@ -67,7 +67,7 @@ jobs:
         run: pnpm lint
 
       - name: Type-check
-        run: pnpm exec tsc --noEmit
+        run: pnpm typecheck
 
       - name: Build
         run: pnpm build

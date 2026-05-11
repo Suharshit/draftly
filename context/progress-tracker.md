@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Complete the next feature spec unit after `05-prisma.md`.
+- Complete the next feature spec unit after `06-project-apis.md`.
 
 ## Completed
 
@@ -63,6 +63,17 @@ Update this file whenever the current phase, active feature, or implementation s
     - Created and applied initial migration:
       - `prisma/migrations/20260503143051_init_project_models/migration.sql`
     - Regenerated Prisma client in `app/generated/prisma`
+- Feature spec `06-project-apis.md` completed:
+    - Added backend project API routes:
+      - `GET /api/projects` in `app/api/projects/route.ts` to list current user's owned projects
+      - `POST /api/projects` in `app/api/projects/route.ts` to create a project using Clerk `userId` as `ownerId`
+      - `PATCH /api/projects/[projectId]` in `app/api/projects/[projectId]/route.ts` to rename project (owner-only)
+      - `DELETE /api/projects/[projectId]` in `app/api/projects/[projectId]/route.ts` to delete project (owner-only)
+    - Enforced auth and ownership behaviors:
+      - Unauthenticated requests return `401` with `{ error: "Unauthorized" }`
+      - Non-owner rename/delete requests return `403` with `{ error: "Forbidden" }`
+    - Applied create/rename name defaulting:
+      - Missing/blank `name` resolves to `Untitled Project`
 
 ## In Progress
 
@@ -70,7 +81,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Select and implement the next feature spec unit after `05-prisma.md`.
+- Select and implement the next feature spec unit after `06-project-apis.md`.
 
 ## Open Questions
 
@@ -115,3 +126,13 @@ Update this file whenever the current phase, active feature, or implementation s
     - `pnpm prisma migrate dev --name init_project_models` passed
     - `pnpm prisma generate` passed
     - `pnpm build` passed
+- Implemented `06-project-apis.md` on 2026-05-11.
+- Validation checks for `06-project-apis.md`:
+    - `pnpm build` failed in current environment due to `EPERM` on `.next/trace`
+- Applied post-spec build/typecheck fixes from `context/current-issuse.md` on 2026-05-11:
+    - Fixed Prisma client typing in `lib/prisma.ts` to avoid union-call signature failures in route handlers when using Accelerate extension branch.
+    - Added `typecheck` script to `package.json` (`tsc --noEmit`) for parity with `lint` and `build`.
+    - Updated CI type-check step in `.github/workflows/ci.yml` to run `pnpm typecheck`.
+    - Validation checks:
+      - `pnpm typecheck` passed
+      - `pnpm lint` passed

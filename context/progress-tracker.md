@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Complete the next feature spec unit after `15-nodes-color-toolbar.md`.
+- Complete the next feature spec unit after `16-edge-behavior.md`.
 
 ## Completed
 
@@ -220,9 +220,32 @@ Update this file whenever the current phase, active feature, or implementation s
     - CSS shape renderer (`getCssShapeStyle`) now takes a `fillColor` argument; background transitions smoothly with `0.15s ease`.
     - Swatch click calls `setNodes` to update both `data.color` (bg) and `data.textColor` on the node — all within the existing `useLiveblocksFlow` collaborative state, no server calls.
 
+- Feature spec `16-edge-behavior.md` completed:
+    - Added `components/editor/canvas-edge.tsx`:
+        - `CanvasEdgeComponent` using `getSmoothStepPath` for right-angle routing.
+        - `BaseEdge` for the visible path; stroke is `#52525b` at rest and `var(--accent-primary)` on hover/selection with `0.15s ease` transition.
+        - Dual SVG marker defs (`canvas-arrow-rest` / `canvas-arrow-active`) defined via `CanvasEdgeMarkerDefs` component; arrowhead colour tracks active state.
+        - Wide transparent hit path (`strokeWidth: 18`) above the visible path for easy hover/click; `cursor: pointer` on hover.
+        - Inline collaborative label via `EdgeLabelRenderer`:
+            - Read-only badge (hidden when no label) with `nodrag nopan` class.
+            - Double-click on badge or invisible path enters edit mode.
+            - Auto-focus + select-all on mount.
+            - Auto-growing input width via `measureInputWidth` formula.
+            - Commit on `Enter` or `blur`; discard on `Escape`.
+            - Saves via `setEdges` — propagated through `useLiveblocksFlow` with no server calls.
+    - Updated `types/canvas.ts`:
+        - `CanvasEdgeData` is now an `interface` with `label?: string`.
+    - Updated `components/editor/canvas-flow.tsx`:
+        - Registered `CanvasEdgeComponent` in `edgeTypes` map under `CANVAS_EDGE_TYPE`.
+        - `defaultEdgeOptions` set to `{ type: CANVAS_EDGE_TYPE }`.
+        - `connectionLineType` switched to `ConnectionLineType.SmoothStep`.
+        - `CanvasEdgeMarkerDefs` rendered inside canvas wrapper.
+    - Updated `components/editor/canvas-node.tsx`:
+        - `HANDLE_STYLE_BASE` updated to `7×7` white dot (`var(--text-primary)`) with `1px solid var(--bg-surface)` border.
+
 ## Next Up
 
-- Select and implement the next feature spec unit after `15-nodes-color-toolbar.md`.
+- Select and implement the next feature spec unit after `16-edge-behavior.md`.
 
 ## Open Questions
 
@@ -336,6 +359,7 @@ Update this file whenever the current phase, active feature, or implementation s
 - Implemented `14-node-editing.md` on 2026-05-12.
 - Validation checks for `14-node-editing.md`:
     - `pnpm build` passed (TypeScript + static page generation, exit code 0)
-- Implemented `15-nodes-color-toolbar.md` on 2026-05-12.
-- Validation checks for `15-nodes-color-toolbar.md`:
-    - `pnpm build` passed (TypeScript + static page generation, exit code 0)
+- Implemented `16-edge-behavior.md` on 2026-05-13.
+- Validation checks for `16-edge-behavior.md`:
+    - `pnpm typecheck` passed
+    - `pnpm build` passed (exit code 0)

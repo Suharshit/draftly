@@ -12,20 +12,26 @@ import {
   ConnectionLineType,
   useReactFlow,
   type NodeTypes,
+  type EdgeTypes,
 } from "@xyflow/react";
 import { useLiveblocksFlow, Cursors } from "@liveblocks/react-flow";
 
 import { CanvasNodeComponent } from "@/components/editor/canvas-node";
+import { CanvasEdgeComponent, CanvasEdgeMarkerDefs } from "@/components/editor/canvas-edge";
 import { ShapePanel, SHAPE_DRAG_MIME, type ShapeDragPayload } from "@/components/editor/shape-panel";
-import { CANVAS_NODE_TYPE } from "@/types/canvas";
+import { CANVAS_NODE_TYPE, CANVAS_EDGE_TYPE } from "@/types/canvas";
 import type { CanvasNode } from "@/types/canvas";
 
 // ---------------------------------------------------------------------------
-// Custom node type registration
+// Custom node / edge type registration
 // ---------------------------------------------------------------------------
 
 const nodeTypes: NodeTypes = {
   [CANVAS_NODE_TYPE]: CanvasNodeComponent,
+};
+
+const edgeTypes: EdgeTypes = {
+  [CANVAS_EDGE_TYPE]: CanvasEdgeComponent,
 };
 
 // ---------------------------------------------------------------------------
@@ -106,6 +112,7 @@ function CanvasFlowInner() {
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
+      <CanvasEdgeMarkerDefs />
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -114,10 +121,11 @@ function CanvasFlowInner() {
         onConnect={onConnect}
         onDelete={onDelete}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         connectionMode={ConnectionMode.Loose}
-        connectionLineType={ConnectionLineType.Bezier}
-        defaultEdgeOptions={{ type: "default" }}
+        connectionLineType={ConnectionLineType.SmoothStep}
+        defaultEdgeOptions={{ type: CANVAS_EDGE_TYPE }}
       >
         <Cursors />
         <MiniMap

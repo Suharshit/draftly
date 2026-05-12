@@ -37,10 +37,10 @@ type NodeDataUpdate = Partial<
 // ---------------------------------------------------------------------------
 
 const HANDLE_STYLE_BASE: React.CSSProperties = {
-  width: 8,
-  height: 8,
-  background: "var(--accent-primary)",
-  border: "2px solid var(--bg-surface)",
+  width: 7,
+  height: 7,
+  background: "var(--text-primary)", // small white dot
+  border: "1px solid var(--bg-surface)",
   borderRadius: "50%",
   transition: "opacity 0.15s ease",
 };

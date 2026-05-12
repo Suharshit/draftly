@@ -80,9 +80,11 @@ export interface CanvasNodeData extends Record<string, unknown> {
 
 /**
  * Data payload carried by every canvas edge.
- * Reserved for future custom edge rendering.
  */
-export type CanvasEdgeData = Record<string, unknown>;
+export interface CanvasEdgeData extends Record<string, unknown> {
+  /** Optional inline label displayed at the edge midpoint. */
+  label?: string;
+}
 
 /** Named node type constant used across the canvas. */
 export const CANVAS_NODE_TYPE = "canvasNode" as const;

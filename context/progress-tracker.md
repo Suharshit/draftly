@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Complete the next feature spec unit after `09-share-dialog.md`.
+- Complete the next feature spec unit after `10-liveblocks-setup.md`.
 
 ## Completed
 
@@ -148,7 +148,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Select and implement the next feature spec unit after `09-share-dialog.md`.
+- Select and implement the next feature spec unit after `10-liveblocks-setup.md`.
 
 ## Open Questions
 
@@ -220,3 +220,21 @@ Update this file whenever the current phase, active feature, or implementation s
     - `pnpm typecheck` passed
     - `pnpm lint` passed
     - `pnpm build` failed in current environment due to `EPERM` on `.next/trace`
+- Implemented `10-liveblocks-setup.md` on 2026-05-12.
+    - Installed `@liveblocks/node` package.
+    - Updated `liveblocks.config.ts`:
+      - `Presence` typed with `cursor: { x: number; y: number } | null` and `isThinking: boolean`
+      - `UserMeta.info` typed with `name`, `avatar`, and `cursorColor`
+    - Added `lib/liveblocks.ts`:
+      - Cached `Liveblocks` node client singleton (via `globalThis`) to survive Next.js hot-reload
+      - `getCursorColor(userId)` helper — deterministic hash maps any user ID to one of 8 fixed palette colors
+    - Added `app/api/liveblocks-auth/route.ts` (`POST /api/liveblocks-auth`):
+      - Requires Clerk authentication (401 if not signed in)
+      - Parses project ID as room from request body (400 if missing)
+      - Verifies owner/collaborator access via `getAccessibleProject` (403 if denied)
+      - Idempotently creates the Liveblocks room via `getOrCreateRoom`
+      - Returns an access-token session with user name, avatar, and cursor color
+    - Added `LIVEBLOCKS_SECRET_KEY` slot to `.env.local` (must be filled from Liveblocks dashboard)
+- Validation checks for `10-liveblocks-setup.md`:
+    - `pnpm typecheck` passed
+    - `pnpm lint` passed

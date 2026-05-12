@@ -1,7 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-import { liveblocks, getCursorColor } from "@/lib/liveblocks";
+import { getLiveblocksClient, getCursorColor } from "@/lib/liveblocks";
 import { getCurrentIdentity, getAccessibleProject } from "@/lib/project-access";
 
 export async function POST(request: Request) {
@@ -47,6 +47,8 @@ export async function POST(request: Request) {
   if (!project) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const liveblocks = getLiveblocksClient();
 
   // 5. Ensure the Liveblocks room exists (create only if needed).
   await liveblocks.getOrCreateRoom(roomId, {

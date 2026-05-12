@@ -45,5 +45,6 @@ function createLiveblocksClient(): Liveblocks {
   return new Liveblocks({ secret });
 }
 
-export const liveblocks: Liveblocks =
-  globalThis.__liveblocksClient ?? (globalThis.__liveblocksClient = createLiveblocksClient());
+export function getLiveblocksClient(): Liveblocks {
+  return globalThis.__liveblocksClient ?? (globalThis.__liveblocksClient = createLiveblocksClient());
+}

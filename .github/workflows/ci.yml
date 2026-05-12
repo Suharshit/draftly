@@ -30,6 +30,7 @@ jobs:
       DATABASE_URL: postgresql://ghost:ghost@localhost:5432/ghost_test
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
       CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+      LIVEBLOCKS_SECRET_KEY: ${{ vars.LIVEBLOCKS_SECRET_KEY }}
 
     steps:
       - name: Checkout

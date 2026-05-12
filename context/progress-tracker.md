@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Complete the next feature spec unit after `10-liveblocks-setup.md`.
+- Complete the next feature spec unit after `11-base-canvas.md`.
 
 ## Completed
 
@@ -141,6 +141,30 @@ Update this file whenever the current phase, active feature, or implementation s
       - Collaborators get read-only view of collaborator list
     - Updated `lib/project-access.ts`:
       - `AccessibleProject` now includes `isOwner` role context
+- Feature spec `11-base-canvas.md` completed:
+    - Added shared canvas types in `types/canvas.ts`:
+      - `CanvasNodeData` with `label`, `color`, `shape` fields
+      - `CanvasEdgeData` typed as generic record
+      - `CANVAS_NODE_TYPE` and `CANVAS_EDGE_TYPE` constants
+      - `CanvasNode` and `CanvasEdge` fully-typed React Flow node/edge aliases
+    - Added `components/editor/canvas-wrapper.tsx`:
+      - `LiveblocksProvider` pointing to `/api/liveblocks-auth`
+      - `RoomProvider` scoped to the current project ID
+      - Initial presence: `cursor: null`, `isThinking: false`
+      - `ClientSideSuspense` with "Connecting to canvas…" loading state
+      - Inline `CanvasErrorBoundary` class for connection failure fallback
+    - Added `components/editor/canvas-flow.tsx`:
+      - Uses `useLiveblocksFlow` with `suspense: true`, empty initial nodes and edges
+      - `ReactFlow` wired with synced nodes, edges, and change handlers
+      - `ConnectionMode.Loose` connection behavior
+      - `fitView` enabled
+      - `MiniMap` rendered bottom-right with accent color
+      - Dot-pattern `Background` using `--border-default` token
+      - `Cursors` component for live peer cursors
+    - Updated `components/editor/editor-workspace-shell.tsx`:
+      - Replaced canvas placeholder section with `<CanvasWrapper roomId={projectId} />`
+    - Updated `app/globals.css`:
+      - Added `@xyflow/react/dist/style.css`, `@liveblocks/react-ui/styles.css`, and `@liveblocks/react-flow/styles.css` imports
 
 ## In Progress
 
@@ -148,7 +172,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Select and implement the next feature spec unit after `10-liveblocks-setup.md`.
+- Select and implement the next feature spec unit after `11-base-canvas.md`.
 
 ## Open Questions
 
@@ -236,5 +260,9 @@ Update this file whenever the current phase, active feature, or implementation s
       - Returns an access-token session with user name, avatar, and cursor color
     - Added `LIVEBLOCKS_SECRET_KEY` slot to `.env.local` (must be filled from Liveblocks dashboard)
 - Validation checks for `10-liveblocks-setup.md`:
+    - `pnpm typecheck` passed
+    - `pnpm lint` passed
+- Implemented `11-base-canvas.md` on 2026-05-12.
+- Validation checks for `11-base-canvas.md`:
     - `pnpm typecheck` passed
     - `pnpm lint` passed

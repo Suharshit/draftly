@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Bot, PanelLeftClose, PanelLeftOpen, Share2 } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 
+import { CanvasWrapper } from "@/components/editor/canvas-wrapper";
 import { ProjectDialogs } from "@/components/editor/project-dialogs";
 import { ProjectSidebar } from "@/components/editor/project-sidebar";
 import { ShareDialog } from "@/components/editor/share-dialog";
@@ -92,15 +93,10 @@ export function EditorWorkspaceShell({
         />
 
         <section
-          className="flex min-w-0 flex-1 items-center justify-center border-l border-border bg-background px-6 text-center"
-          aria-label="Editor canvas area placeholder"
+          className="relative flex min-w-0 flex-1 overflow-hidden border-l border-border bg-background"
+          aria-label="Collaborative canvas"
         >
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">Canvas workspace coming next</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              This room is ready. Real-time canvas tools will be wired in a later spec.
-            </p>
-          </div>
+          <CanvasWrapper roomId={projectId} />
         </section>
 
         {isAiSidebarOpen ? (

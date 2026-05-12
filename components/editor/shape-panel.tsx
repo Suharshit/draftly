@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, type DragEvent } from "react";
+import { useState, useEffect, useRef, useCallback, type DragEvent } from "react";
 import {
   Square,
   Circle,
@@ -63,7 +63,7 @@ function getGhostStyle(shape: CanvasShape, width: number, height: number): React
     width,
     height,
     background: "var(--bg-surface)",
-    border: "1.5px solid var(--accent-primary)",
+    border: "1px solid var(--accent-primary)",
     opacity: 0.72,
     pointerEvents: "none",
     boxSizing: "border-box",
@@ -146,18 +146,26 @@ export function ShapePanel() {
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragActive = useRef(false);
 
-  // Track cursor position globally during drag
+  // Track cursor position globally during drag via dragover
+  // NOTE: The HTML5 drag API suppresses native mousemove events during drag.
+  // dragover fires on every frame while something is being dragged over an element,
+  // giving us reliable clientX/Y to follow the cursor.
+  const setPos = useCallback((x: number, y: number) => {
+    setDrag((prev) => prev ? { ...prev, x, y } : null);
+  }, []);
+
   useEffect(() => {
     if (!drag) return;
 
-    function onMouseMove(e: MouseEvent) {
-      if (!dragActive.current) return;
-      setDrag((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY } : null);
+    function onDragOver(e: globalThis.DragEvent) {
+      e.preventDefault(); // required for drop to work
+      setPos(e.clientX, e.clientY);
     }
 
-    window.addEventListener("mousemove", onMouseMove);
-    return () => window.removeEventListener("mousemove", onMouseMove);
-  }, [drag]);
+    document.addEventListener("dragover", onDragOver);
+    return () => document.removeEventListener("dragover", onDragOver);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!drag, setPos]);
 
   function handleDragStart(e: DragEvent<HTMLButtonElement>, entry: ShapeEntry) {
     const payload: ShapeDragPayload = {

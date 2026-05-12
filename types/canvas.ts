@@ -24,6 +24,36 @@ export const SHAPE_DEFAULTS: Record<CanvasShape, { width: number; height: number
 };
 
 // ---------------------------------------------------------------------------
+// Node color palette
+// ---------------------------------------------------------------------------
+
+/** A predefined background + text color pair for canvas nodes. */
+export interface NodeColorPair {
+  id: string;
+  label: string;
+  /** Node background color (hex). */
+  bg: string;
+  /** Paired label text color (hex). */
+  text: string;
+}
+
+/**
+ * Curated dark-surface color pairs for canvas nodes.
+ * Each entry is a deep background with a vivid, readable foreground.
+ * Stored here because ui-context.md does not define node-specific palette.
+ */
+export const NODE_COLOR_PALETTE: NodeColorPair[] = [
+  { id: "default", label: "Default", bg: "#18181b", text: "#fafafa" },
+  { id: "blue",    label: "Blue",    bg: "#172554", text: "#93c5fd" },
+  { id: "purple",  label: "Purple",  bg: "#2e1065", text: "#c4b5fd" },
+  { id: "green",   label: "Green",   bg: "#052e16", text: "#86efac" },
+  { id: "amber",   label: "Amber",   bg: "#451a03", text: "#fcd34d" },
+  { id: "red",     label: "Red",     bg: "#450a0a", text: "#fca5a5" },
+  { id: "teal",    label: "Teal",    bg: "#042f2e", text: "#5eead4" },
+  { id: "pink",    label: "Pink",    bg: "#500724", text: "#f9a8d4" },
+];
+
+// ---------------------------------------------------------------------------
 // Node / edge types
 // ---------------------------------------------------------------------------
 
@@ -33,7 +63,18 @@ export const SHAPE_DEFAULTS: Record<CanvasShape, { width: number; height: number
  */
 export interface CanvasNodeData extends Record<string, unknown> {
   label: string;
+  /** Node background color (hex). Undefined = default surface. */
   color?: string;
+  /** Node text color (hex). Paired with `color` from NODE_COLOR_PALETTE. */
+  textColor?: string;
+  /** Node border/outline color (hex). Undefined = default border. */
+  strokeColor?: string;
+  /** Whether the node label is bold. */
+  bold?: boolean;
+  /** Whether the node label is italic. */
+  italic?: boolean;
+  /** Node label font size in pixels. Default 12. */
+  fontSize?: number;
   shape?: CanvasShape;
 }
 

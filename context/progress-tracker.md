@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Complete the next feature spec unit after `13-node-shape.md`.
+- Complete the next feature spec unit after `15-nodes-color-toolbar.md`.
 
 ## Completed
 
@@ -197,9 +197,32 @@ Update this file whenever the current phase, active feature, or implementation s
         - Preview is destroyed on `dragend` (drop or cancel).
     - Collaborative canvas state unchanged; no changes to `canvas-flow.tsx` or `canvas-wrapper.tsx`.
 
+- Feature spec `14-node-editing.md` completed:
+    - Added `LabelEditor` overlay component (absolute-positioned, `nodrag nopan`, `textarea`).
+    - Double-clicking any node label area enters edit mode and auto-focuses the textarea.
+    - Label updates on every keystroke via `setNodes` — propagated through `useLiveblocksFlow` to the shared collaborative state.
+    - Editing closes on `blur` or `Escape`; `mousedown` is stopped from bubbling to prevent canvas drag/pan while the textarea is active.
+    - SVG-based shapes (diamond, hexagon, cylinder) hide their `<text>` element while editing to prevent overlap with the textarea.
+    - CSS-based shapes (rectangle, circle, pill) hide the label `<span>` while editing.
+    - `NodeResizer` is hidden during edit mode to reduce visual noise.
+    - Dimension hover inputs are suppressed while editing.
+    - Shape rendering and panel are unchanged (scope limit honored).
+
+- Feature spec `15-nodes-color-toolbar.md` completed:
+    - Added `NodeColorPair` interface and `NODE_COLOR_PALETTE` (8 dark bg / vivid text pairs) to `types/canvas.ts`.
+    - Added `textColor?: string` to `CanvasNodeData` to store the paired text color alongside the background.
+    - Added `NodeColorToolbar` component in `canvas-node.tsx`:
+        - Floating pill above selected node (`bottom: calc(100% + 10px)`, `left: 50%`, `translateX(-50%)`).
+        - One circular swatch per palette entry showing its `bg` color.
+        - Active swatch has a `text`-colored border + outline; hover shows a tight `box-shadow` ring using the swatch's text color at 33% opacity.
+        - `nodrag nopan` class and `onMouseDown` stop-propagation prevent drag/pan interference.
+    - SVG shape renderers (diamond, hexagon, cylinder) now accept `fillColor` and `nodeTextColor` props and use them instead of hardcoded `var(--bg-surface)` / `var(--text-primary)`.
+    - CSS shape renderer (`getCssShapeStyle`) now takes a `fillColor` argument; background transitions smoothly with `0.15s ease`.
+    - Swatch click calls `setNodes` to update both `data.color` (bg) and `data.textColor` on the node — all within the existing `useLiveblocksFlow` collaborative state, no server calls.
+
 ## Next Up
 
-- Select and implement the next feature spec unit after `13-node-shape.md`.
+- Select and implement the next feature spec unit after `15-nodes-color-toolbar.md`.
 
 ## Open Questions
 
@@ -310,3 +333,9 @@ Update this file whenever the current phase, active feature, or implementation s
 - Implemented `13-node-shape.md` on 2026-05-12.
 - Validation checks for `13-node-shape.md`:
     - `pnpm build` passed (TypeScript + static page generation)
+- Implemented `14-node-editing.md` on 2026-05-12.
+- Validation checks for `14-node-editing.md`:
+    - `pnpm build` passed (TypeScript + static page generation, exit code 0)
+- Implemented `15-nodes-color-toolbar.md` on 2026-05-12.
+- Validation checks for `15-nodes-color-toolbar.md`:
+    - `pnpm build` passed (TypeScript + static page generation, exit code 0)

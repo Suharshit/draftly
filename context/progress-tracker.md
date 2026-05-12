@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Complete the next feature spec unit after `16-edge-behavior.md`.
+- Complete the next feature spec unit after `17-canvas-ergonomics.md`.
 
 ## Completed
 
@@ -243,9 +243,37 @@ Update this file whenever the current phase, active feature, or implementation s
     - Updated `components/editor/canvas-node.tsx`:
         - `HANDLE_STYLE_BASE` updated to `7×7` white dot (`var(--text-primary)`) with `1px solid var(--bg-surface)` border.
 
+- Feature spec `17-canvas-ergonomics.md` completed:
+    - Updated `types/canvas.ts`:
+        - Expanded `CanvasEdgeData` with `arrowDirection`, `color`, `colorId`, `bold`, `italic`, `fontSize` fields.
+    - Added `hooks/use-keyboard-shortcuts.ts`:
+        - Global `keydown` listener on `window` for zoom (`+`/`=`/`-`) and history (`Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z`, `Ctrl/Cmd+Y`) shortcuts.
+        - Typing-protection guard: all hotkeys suppressed when focus is inside `input`, `textarea`, or `contenteditable` elements.
+        - Event listener removed on unmount; no third-party hotkey packages used.
+    - Added `components/editor/canvas-control-bar.tsx`:
+        - Floating pill at `bottom-6 left-6 z-10` with `bg-[var(--bg-surface)]` + border + `shadow-lg`.
+        - Group 1: ZoomOut, FitView (Maximize icon), ZoomIn — each calls React Flow API with `duration: 300`.
+        - Thin `1px` vertical divider separating groups.
+        - Group 2: Undo (`Undo2`) and Redo (`Redo2`) wired to Liveblocks `useUndo`/`useRedo`; disabled + dimmed (`opacity: 0.4`) when `useCanUndo`/`useCanRedo` is false.
+    - Updated `components/editor/canvas-edge.tsx`:
+        - `CanvasEdgeMarkerDefs` now generates rest+active marker pairs for **every** `NODE_COLOR_PALETTE` entry (using `pair.text` as fill) plus the default pair.
+        - Stroke color resolves `data.color` → vivid active accent → rest gray.
+        - `markerStart` / `markerEnd` computed from `data.arrowDirection` (defaults to `"forward"`).
+        - Marker IDs include palette `colorId` so arrowheads always match the stroke color.
+        - `EdgeLabel` now forwards `bold`, `italic`, `fontSize` to both read-only badge and edit input.
+        - New `EdgeToolbar` component visible when edge is `selected` and not in label-edit mode:
+            - Arrow direction: None / Forward / Backward / Bidirectional buttons.
+            - Typography: Bold and Italic toggle buttons.
+            - Color swatches: 8-entry palette matching node swatches; clicking sets `data.color` + `data.colorId`.
+            - `nodrag nopan` + `onMouseDown` stop-propagation prevent canvas interference.
+    - Updated `components/editor/canvas-flow.tsx`:
+        - Imports `CanvasControlBar` and mounts it as an overlay inside the canvas `div`.
+        - Calls `useKeyboardShortcuts` with `zoomIn`, `zoomOut`, `undo`, `redo` from React Flow + Liveblocks.
+        - Added `deleteKeyCode={["Backspace", "Delete"]}` to `<ReactFlow>` for native keyboard deletion.
+
 ## Next Up
 
-- Select and implement the next feature spec unit after `16-edge-behavior.md`.
+- Select and implement the next feature spec unit after `17-canvas-ergonomics.md`.
 
 ## Open Questions
 
@@ -361,5 +389,9 @@ Update this file whenever the current phase, active feature, or implementation s
     - `pnpm build` passed (TypeScript + static page generation, exit code 0)
 - Implemented `16-edge-behavior.md` on 2026-05-13.
 - Validation checks for `16-edge-behavior.md`:
+    - `pnpm typecheck` passed
+    - `pnpm build` passed (exit code 0)
+- Implemented `17-canvas-ergonomics.md` on 2026-05-13.
+- Validation checks for `17-canvas-ergonomics.md`:
     - `pnpm typecheck` passed
     - `pnpm build` passed (exit code 0)

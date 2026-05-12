@@ -84,6 +84,30 @@ export interface CanvasNodeData extends Record<string, unknown> {
 export interface CanvasEdgeData extends Record<string, unknown> {
   /** Optional inline label displayed at the edge midpoint. */
   label?: string;
+  /**
+   * Direction of arrowheads.
+   * 'none'          — plain line, no arrowhead
+   * 'forward'       — arrowhead at target end only (default)
+   * 'backward'      — arrowhead at source end only
+   * 'bidirectional' — arrowheads at both ends
+   */
+  arrowDirection?: "none" | "forward" | "backward" | "bidirectional";
+  /**
+   * Custom stroke color (hex). When defined uses pair.text from NODE_COLOR_PALETTE
+   * for high visibility. Undefined = default zinc gray.
+   */
+  color?: string;
+  /**
+   * Matching palette entry id so arrowhead markers resolve to the correct color.
+   * Undefined = default marker pair.
+   */
+  colorId?: string;
+  /** Whether the edge label is rendered bold. */
+  bold?: boolean;
+  /** Whether the edge label is rendered italic. */
+  italic?: boolean;
+  /** Custom label font size in pixels. Default 11. */
+  fontSize?: number;
 }
 
 /** Named node type constant used across the canvas. */

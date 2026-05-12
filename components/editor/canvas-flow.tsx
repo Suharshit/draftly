@@ -15,10 +15,13 @@ import {
   type EdgeTypes,
 } from "@xyflow/react";
 import { useLiveblocksFlow, Cursors } from "@liveblocks/react-flow";
+import { useUndo, useRedo } from "@liveblocks/react";
 
 import { CanvasNodeComponent } from "@/components/editor/canvas-node";
 import { CanvasEdgeComponent, CanvasEdgeMarkerDefs } from "@/components/editor/canvas-edge";
 import { ShapePanel, SHAPE_DRAG_MIME, type ShapeDragPayload } from "@/components/editor/shape-panel";
+import { CanvasControlBar } from "@/components/editor/canvas-control-bar";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { CANVAS_NODE_TYPE, CANVAS_EDGE_TYPE } from "@/types/canvas";
 import type { CanvasNode } from "@/types/canvas";
 
@@ -57,7 +60,19 @@ function CanvasFlowInner() {
       edges: { initial: [] },
     });
 
-  const { screenToFlowPosition, addNodes } = useReactFlow<CanvasNode>();
+  const { screenToFlowPosition, addNodes, zoomIn, zoomOut } = useReactFlow<CanvasNode>();
+
+  // Liveblocks history
+  const undo = useUndo();
+  const redo = useRedo();
+
+  // Global keyboard shortcuts
+  useKeyboardShortcuts({
+    zoomIn:  () => zoomIn({ duration: 300 }),
+    zoomOut: () => zoomOut({ duration: 300 }),
+    undo,
+    redo,
+  });
 
   const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
     if (e.dataTransfer.types.includes(SHAPE_DRAG_MIME)) {
@@ -126,6 +141,7 @@ function CanvasFlowInner() {
         connectionMode={ConnectionMode.Loose}
         connectionLineType={ConnectionLineType.SmoothStep}
         defaultEdgeOptions={{ type: CANVAS_EDGE_TYPE }}
+        deleteKeyCode={["Backspace", "Delete"]}
       >
         <Cursors />
         <MiniMap
@@ -146,6 +162,8 @@ function CanvasFlowInner() {
         />
       </ReactFlow>
 
+      {/* Floating overlays */}
+      <CanvasControlBar />
       <ShapePanel />
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, Fragment } from "react";
 import {
   getSmoothStepPath,
   EdgeLabelRenderer,
@@ -11,54 +11,77 @@ import {
 } from "@xyflow/react";
 
 import type { CanvasEdgeData } from "@/types/canvas";
-import { CANVAS_EDGE_TYPE } from "@/types/canvas";
+import { CANVAS_EDGE_TYPE, NODE_COLOR_PALETTE } from "@/types/canvas";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const COLOR_REST   = "#52525b"; // slightly brighter dim gray (vs --border-default #27272a)
+const COLOR_REST   = "#52525b"; // slightly brighter dim gray
+const COLOR_ACTIVE = "#3b82f6"; // var(--accent-primary) as a literal for SVG markers
 const STROKE_WIDTH = 2;
 const HIT_WIDTH    = 18; // wide invisible path for easy hover/click
 
 // ---------------------------------------------------------------------------
-// Marker SVG defs — must be rendered once into the React Flow SVG layer
+// Palette-colored arrowhead marker defs
 // ---------------------------------------------------------------------------
 
 /**
- * Render this once inside the React Flow `<svg>` element (or any ancestor
- * SVG that shares the same DOM) so both arrowhead markers are defined.
- * CanvasFlow renders this via a hidden <svg> in the canvas wrapper.
+ * Renders one pair of SVG `<marker>` defs per NODE_COLOR_PALETTE entry, plus
+ * the default rest/active pair.  Must be mounted once in the canvas wrapper.
  */
 export function CanvasEdgeMarkerDefs() {
   return (
-    <svg style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }} aria-hidden>
+    <svg
+      style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }}
+      aria-hidden
+    >
       <defs>
-        <marker
-          id="canvas-arrow-rest"
-          viewBox="0 0 10 10"
-          refX="8"
-          refY="5"
-          markerWidth="6"
-          markerHeight="6"
-          orient="auto-start-reverse"
-        >
-          <path d="M 0 0 L 10 5 L 0 10 z" fill={COLOR_REST} />
-        </marker>
-        <marker
-          id="canvas-arrow-active"
-          viewBox="0 0 10 10"
-          refX="8"
-          refY="5"
-          markerWidth="6"
-          markerHeight="6"
-          orient="auto-start-reverse"
-        >
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" />
-        </marker>
+        {/* Default markers */}
+        <ArrowMarker id="canvas-arrow-default-rest"   color={COLOR_REST}   />
+        <ArrowMarker id="canvas-arrow-default-active" color={COLOR_ACTIVE} />
+
+        {/* Per-palette-entry markers */}
+        {NODE_COLOR_PALETTE.map((pair) => (
+          <Fragment key={pair.id}>
+            <ArrowMarker
+              id={`canvas-arrow-${pair.id}-rest`}
+              color={pair.text}
+            />
+            <ArrowMarker
+              id={`canvas-arrow-${pair.id}-active`}
+              color={pair.text}
+            />
+          </Fragment>
+        ))}
       </defs>
     </svg>
   );
+}
+
+function ArrowMarker({ id, color }: { id: string; color: string }) {
+  return (
+    <marker
+      id={id}
+      viewBox="0 0 10 10"
+      refX="8"
+      refY="5"
+      markerWidth="6"
+      markerHeight="6"
+      orient="auto-start-reverse"
+    >
+      <path d="M 0 0 L 10 5 L 0 10 z" fill={color} />
+    </marker>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Marker ID helpers
+// ---------------------------------------------------------------------------
+
+function markerId(colorId: string | undefined, state: "rest" | "active"): string {
+  const palette = colorId ?? "default";
+  return `url(#canvas-arrow-${palette}-${state})`;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,6 +104,9 @@ interface EdgeLabelProps {
   isActive: boolean;
   isEditing: boolean;
   onEditingChange: (editing: boolean) => void;
+  bold?: boolean;
+  italic?: boolean;
+  fontSize?: number;
 }
 
 function EdgeLabel({
@@ -91,6 +117,9 @@ function EdgeLabel({
   isActive,
   isEditing,
   onEditingChange,
+  bold,
+  italic,
+  fontSize = 11,
 }: EdgeLabelProps) {
   const [draft, setDraft] = useState(label ?? "");
   const [prevIsEditing, setPrevIsEditing] = useState(isEditing);
@@ -162,8 +191,10 @@ function EdgeLabel({
             onClick={(e) => e.stopPropagation()}
             style={{
               width: measureInputWidth(draft),
-              fontSize: 11,
+              fontSize,
               fontFamily: "var(--font-sans)",
+              fontWeight: bold ? "bold" : "normal",
+              fontStyle:  italic ? "italic" : "normal",
               color: "var(--text-primary)",
               background: "var(--bg-surface)",
               border: "1px solid var(--accent-primary)",
@@ -178,14 +209,15 @@ function EdgeLabel({
           <div
             onDoubleClick={(e) => { e.stopPropagation(); enterEdit(); }}
             style={{
-              // Always reserve space to allow double-click even without a label,
-              // but only show visible badge when a label exists.
+              // Always reserve space to allow double-click even without a label
               display: "flex",
               alignItems: "center",
               minWidth: label ? undefined : 24,
               minHeight: label ? undefined : 16,
-              fontSize: 11,
+              fontSize,
               fontFamily: "var(--font-sans)",
+              fontWeight: bold ? "bold" : "normal",
+              fontStyle:  italic ? "italic" : "normal",
               color: isActive ? "var(--accent-primary)" : "var(--text-muted)",
               background: label ? "var(--bg-surface)" : "transparent",
               border: label
@@ -208,6 +240,206 @@ function EdgeLabel({
 }
 
 // ---------------------------------------------------------------------------
+// Edge formatting toolbar — visible on selected edges (not editing)
+// ---------------------------------------------------------------------------
+
+interface EdgeToolbarProps {
+  edgeId: string;
+  labelX: number;
+  labelY: number;
+  data: CanvasEdgeData;
+}
+
+const ARROW_BUTTONS: { label: string; value: CanvasEdgeData["arrowDirection"]; symbol: string }[] = [
+  { label: "No arrow",      value: "none",          symbol: "—" },
+  { label: "Forward",       value: "forward",       symbol: "→" },
+  { label: "Backward",      value: "backward",      symbol: "←" },
+  { label: "Bidirectional", value: "bidirectional", symbol: "↔" },
+];
+
+function EdgeToolbar({ edgeId, labelX, labelY, data }: EdgeToolbarProps) {
+  const { setEdges } = useReactFlow();
+
+  const patch = useCallback(
+    (patch: Partial<CanvasEdgeData>) => {
+      setEdges((eds) =>
+        eds.map((e) =>
+          e.id === edgeId ? { ...e, data: { ...e.data, ...patch } } : e,
+        ),
+      );
+    },
+    [edgeId, setEdges],
+  );
+
+  const currentDirection = data.arrowDirection ?? "forward";
+  const currentColorId   = data.colorId ?? "default";
+
+  return (
+    <EdgeLabelRenderer>
+      <div
+        className="nodrag nopan"
+        onMouseDown={(e) => e.stopPropagation()}
+        style={{
+          position: "absolute",
+          transform: `translate(-50%, -100%) translate(${labelX}px, ${labelY - 20}px)`,
+          pointerEvents: "all",
+          zIndex: 20,
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          background: "var(--bg-surface)",
+          border: "1px solid var(--border-default)",
+          borderRadius: 8,
+          padding: "4px 8px",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.45)",
+        }}
+      >
+        {/* Arrow direction buttons */}
+        {ARROW_BUTTONS.map(({ label, value, symbol }) => (
+          <ToolbarButton
+            key={value}
+            label={label}
+            active={currentDirection === value}
+            onClick={() => patch({ arrowDirection: value })}
+            mono
+          >
+            {symbol}
+          </ToolbarButton>
+        ))}
+
+        {/* Divider */}
+        <ToolbarDivider />
+
+        {/* Bold / Italic toggles */}
+        <ToolbarButton
+          label="Bold"
+          active={!!data.bold}
+          onClick={() => patch({ bold: !data.bold })}
+          mono={false}
+          bold
+        >
+          B
+        </ToolbarButton>
+        <ToolbarButton
+          label="Italic"
+          active={!!data.italic}
+          onClick={() => patch({ italic: !data.italic })}
+          mono={false}
+          italic
+        >
+          I
+        </ToolbarButton>
+
+        {/* Divider */}
+        <ToolbarDivider />
+
+        {/* Color swatches */}
+        {NODE_COLOR_PALETTE.map((pair) => {
+          const isDefault = pair.id === "default";
+          const isActive  = currentColorId === pair.id;
+          return (
+            <button
+              key={pair.id}
+              title={pair.label}
+              aria-label={`Edge color: ${pair.label}`}
+              onClick={() =>
+                patch({
+                  color:   isDefault ? undefined : pair.text,
+                  colorId: isDefault ? undefined : pair.id,
+                })
+              }
+              style={{
+                width: 14,
+                height: 14,
+                borderRadius: 9999,
+                background: isDefault ? "var(--border-default)" : pair.text,
+                border: isActive
+                  ? `2px solid var(--text-primary)`
+                  : "2px solid transparent",
+                cursor: "pointer",
+                flexShrink: 0,
+                outline: isActive ? `2px solid ${pair.text}40` : "none",
+                outlineOffset: 1,
+                transition: "border-color 0.1s, outline 0.1s",
+              }}
+            />
+          );
+        })}
+      </div>
+    </EdgeLabelRenderer>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Toolbar sub-components
+// ---------------------------------------------------------------------------
+
+interface ToolbarButtonProps {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  mono?: boolean;
+  bold?: boolean;
+  italic?: boolean;
+}
+
+function ToolbarButton({
+  label,
+  active,
+  onClick,
+  children,
+  mono = true,
+  bold = false,
+  italic = false,
+}: ToolbarButtonProps) {
+  return (
+    <button
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minWidth: 22,
+        height: 22,
+        padding: "0 4px",
+        borderRadius: 4,
+        border: "none",
+        background: active
+          ? "color-mix(in srgb, var(--accent-primary) 15%, transparent)"
+          : "transparent",
+        color: active ? "var(--accent-primary)" : "var(--text-muted)",
+        fontSize: 12,
+        fontWeight: bold ? "bold" : "normal",
+        fontStyle: italic ? "italic" : "normal",
+        fontFamily: mono ? "var(--font-mono)" : "var(--font-sans)",
+        cursor: "pointer",
+        transition: "background 0.1s, color 0.1s",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ToolbarDivider() {
+  return (
+    <div
+      aria-hidden
+      style={{
+        width: 1,
+        height: 14,
+        background: "var(--border-default)",
+        flexShrink: 0,
+        margin: "0 2px",
+      }}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main custom edge component
 // ---------------------------------------------------------------------------
 
@@ -225,9 +457,29 @@ export function CanvasEdgeComponent({
   const [isHovered, setIsHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
-  const isActive    = isHovered || !!selected;
-  const strokeColor = isActive ? "var(--accent-primary)" : COLOR_REST;
-  const markerId    = isActive ? "canvas-arrow-active" : "canvas-arrow-rest";
+  const isActive = isHovered || !!selected;
+
+  // ── Stroke color ──────────────────────────────────────────────────────────
+  // If data.color is set use it; otherwise use default rest/active colors.
+  const strokeColor = data?.color
+    ? data.color
+    : isActive
+      ? "var(--accent-primary)"
+      : COLOR_REST;
+
+  // ── Arrowhead direction ───────────────────────────────────────────────────
+  const direction = data?.arrowDirection ?? "forward";
+  const state     = isActive ? "active" : "rest";
+  const colorId   = data?.colorId; // undefined → default marker pair
+
+  const markerEnd   =
+    direction === "forward" || direction === "bidirectional"
+      ? markerId(colorId, state)
+      : undefined;
+  const markerStart =
+    direction === "backward" || direction === "bidirectional"
+      ? markerId(colorId, state)
+      : undefined;
 
   const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
@@ -239,14 +491,16 @@ export function CanvasEdgeComponent({
     borderRadius: 8,
   });
 
-  const label = typeof data?.label === "string" ? data.label : undefined;
+  const label     = typeof data?.label === "string" ? data.label : undefined;
+  const showToolbar = !!selected && !isEditing;
 
   return (
     <>
       {/* Visible right-angle path */}
       <BaseEdge
         path={edgePath}
-        markerEnd={`url(#${markerId})`}
+        markerEnd={markerEnd}
+        markerStart={markerStart}
         style={{
           stroke: strokeColor,
           strokeWidth: STROKE_WIDTH,
@@ -271,7 +525,7 @@ export function CanvasEdgeComponent({
         }}
       />
 
-      {/* Inline collaborative label */}
+      {/* Inline collaborative label with typography */}
       <EdgeLabel
         edgeId={id}
         label={label}
@@ -280,7 +534,20 @@ export function CanvasEdgeComponent({
         isActive={isActive}
         isEditing={isEditing}
         onEditingChange={setIsEditing}
+        bold={data?.bold}
+        italic={data?.italic}
+        fontSize={data?.fontSize}
       />
+
+      {/* Edge formatting toolbar — shown when selected and not editing label */}
+      {showToolbar && data && (
+        <EdgeToolbar
+          edgeId={id}
+          labelX={labelX}
+          labelY={labelY}
+          data={data}
+        />
+      )}
     </>
   );
 }

@@ -10,6 +10,7 @@ export interface CurrentIdentity {
 export interface AccessibleProject {
   id: string;
   name: string;
+  isOwner: boolean;
 }
 
 export async function getCurrentIdentity(): Promise<CurrentIdentity> {
@@ -51,7 +52,7 @@ export async function getAccessibleProject(
   }
 
   if (project.ownerId === userId) {
-    return { id: project.id, name: project.name };
+    return { id: project.id, name: project.name, isOwner: true };
   }
 
   if (!primaryEmail) {
@@ -59,7 +60,7 @@ export async function getAccessibleProject(
   }
 
   if (Array.isArray(project.collaborators) && project.collaborators.length > 0) {
-    return { id: project.id, name: project.name };
+    return { id: project.id, name: project.name, isOwner: false };
   }
 
   return null;

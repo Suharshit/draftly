@@ -6,6 +6,7 @@ import { UserButton } from "@clerk/nextjs";
 
 import { ProjectDialogs } from "@/components/editor/project-dialogs";
 import { ProjectSidebar } from "@/components/editor/project-sidebar";
+import { ShareDialog } from "@/components/editor/share-dialog";
 import { Button } from "@/components/ui/button";
 import { useProjectActions } from "@/hooks/use-project-actions";
 import type { SidebarProject } from "@/lib/project-data";
@@ -25,6 +26,7 @@ export function EditorWorkspaceShell({
 }: EditorWorkspaceShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(true);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const {
     activeDialog,
     selectedProject,
@@ -58,7 +60,7 @@ export function EditorWorkspaceShell({
             <p className="truncate text-sm font-semibold text-foreground">{projectName}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" size="sm" disabled>
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsShareDialogOpen(true)}>
               <Share2 className="h-4 w-4" />
               Share
             </Button>
@@ -125,6 +127,7 @@ export function EditorWorkspaceShell({
         onRename={submitRename}
         onDelete={submitDelete}
       />
+      <ShareDialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen} projectId={projectId} />
     </div>
   );
 }

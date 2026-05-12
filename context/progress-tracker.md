@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Complete the next feature spec unit after `08-editor-workspace-shell.md`.
+- Complete the next feature spec unit after `09-share-dialog.md`.
 
 ## Completed
 
@@ -120,6 +120,27 @@ Update this file whenever the current phase, active feature, or implementation s
       - Added project navigation links to `/editor/{roomId}`
       - Added active project highlighting support
     - Removed obsolete `canAccessProject()` from `lib/project-data.ts` (replaced by `lib/project-access.ts`)
+- Feature spec `09-share-dialog.md` completed:
+    - Added collaborator API endpoints:
+      - `GET /api/projects/[projectId]/collaborators` for listing collaborators with access checks
+      - `POST /api/projects/[projectId]/collaborators` for owner-only invites by email
+      - `DELETE /api/projects/[projectId]/collaborators/[collaboratorId]` for owner-only removal
+    - Enforced server-side access and ownership:
+      - Workspace owner or collaborator can list collaborators
+      - Only owner can invite and remove collaborators
+    - Added Clerk backend enrichment for collaborator display:
+      - Resolves collaborator email to display name and avatar when Clerk user exists
+      - Falls back to email-only display when no Clerk user is found
+    - Added share dialog UI in `components/editor/share-dialog.tsx`:
+      - Invite by email (owner only)
+      - Collaborator list with avatars/names when available
+      - Remove collaborator action (owner only)
+      - Copy workspace link with temporary `Copied!` feedback
+    - Wired share dialog into workspace shell:
+      - `Share` button in navbar now opens dialog
+      - Collaborators get read-only view of collaborator list
+    - Updated `lib/project-access.ts`:
+      - `AccessibleProject` now includes `isOwner` role context
 
 ## In Progress
 
@@ -127,7 +148,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Select and implement the next feature spec unit after `08-editor-workspace-shell.md`.
+- Select and implement the next feature spec unit after `09-share-dialog.md`.
 
 ## Open Questions
 
@@ -194,3 +215,8 @@ Update this file whenever the current phase, active feature, or implementation s
       - `pnpm typecheck` passed
       - `pnpm lint` passed
 - Implemented `08-editor-workspace-shell.md` on 2026-05-11.
+- Implemented `09-share-dialog.md` on 2026-05-11.
+- Validation checks for `09-share-dialog.md`:
+    - `pnpm typecheck` passed
+    - `pnpm lint` passed
+    - `pnpm build` failed in current environment due to `EPERM` on `.next/trace`

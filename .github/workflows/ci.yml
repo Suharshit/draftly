@@ -93,13 +93,37 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build image for scanning
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true # Load the built image into the local Docker daemon for scanning
+          tags: ghost-ai-local:latest
+          build-args: |
+            DATABASE_URL=postgres://dummy:dummy@localhost:5432/dummy
+          # 1. Docker Build Caching
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner
+        # 2. Security Vulnerability Scanning
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ghost-ai-local:latest'
+          format: 'table'
+          # exit-code: '1' would fail the build if issues are found. 
+          # Keeping 0 so it reports issues without breaking your CI just yet.
+          exit-code: '0' 
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push to Docker Hub
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          # Tags the image with your Docker Hub username and project name
           tags: ${{ vars.DOCKERHUB_USERNAME }}/ghost-ai:latest,${{ vars.DOCKERHUB_USERNAME }}/ghost-ai:${{ github.sha }}
-          # The Dockerfile requires a DATABASE_URL for Prisma generate during build
           build-args: |
             DATABASE_URL=postgres://dummy:dummy@localhost:5432/dummy
+          cache-from: type=gha

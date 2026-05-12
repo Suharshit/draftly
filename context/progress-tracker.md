@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Complete the next feature spec unit after `12-shape-panel.md`.
+- Complete the next feature spec unit after `13-node-shape.md`.
 
 ## Completed
 
@@ -185,9 +185,21 @@ Update this file whenever the current phase, active feature, or implementation s
       - `ShapePanel` rendered as absolute overlay inside the canvas `div`
 
 
+- Feature spec `13-node-shape.md` completed:
+    - Replaced CSS clip-path diamond/hexagon rendering with SVG `<polygon>` elements that scale exactly with node width/height.
+    - Replaced CSS border-radius cylinder with SVG `<rect>` + two `<ellipse>` caps, also scaling with node dimensions.
+    - Rectangle, circle, and pill continue to use CSS border-radius as before.
+    - Border color transitions: `--border-default` at rest → `--accent-primary` when selected.
+    - Added `ShapeGhostPreview` to `shape-panel.tsx`:
+        - Suppresses the browser native drag image (transparent 1×1 off-screen div).
+        - Tracks `mousemove` during drag to keep a fixed-position ghost centered on the cursor.
+        - Ghost shape matches the dragged shape type and default dimensions via CSS / inline SVG data URI.
+        - Preview is destroyed on `dragend` (drop or cancel).
+    - Collaborative canvas state unchanged; no changes to `canvas-flow.tsx` or `canvas-wrapper.tsx`.
+
 ## Next Up
 
-- Select and implement the next feature spec unit after `12-shape-panel.md`.
+- Select and implement the next feature spec unit after `13-node-shape.md`.
 
 ## Open Questions
 
@@ -295,3 +307,6 @@ Update this file whenever the current phase, active feature, or implementation s
     - Validation checks:
         - `pnpm typecheck` passed
         - `pnpm build` passed
+- Implemented `13-node-shape.md` on 2026-05-12.
+- Validation checks for `13-node-shape.md`:
+    - `pnpm build` passed (TypeScript + static page generation)

@@ -40,10 +40,162 @@ function NodeHandles() {
 }
 
 // ---------------------------------------------------------------------------
-// Shape visual styles
+// SVG shape renderers — diamond, hexagon, cylinder
 // ---------------------------------------------------------------------------
 
-function getShapeStyle(shape: CanvasShape | undefined, selected: boolean): React.CSSProperties {
+interface SvgShapeProps {
+  width: number;
+  height: number;
+  selected: boolean;
+  label: string;
+  shape: CanvasShape;
+}
+
+const STROKE_REST     = "var(--border-default)";
+const STROKE_SELECTED = "var(--accent-primary)";
+const FILL_COLOR      = "var(--bg-surface)";
+const STROKE_WIDTH    = 1.5;
+
+function DiamondSvg({ width, height, selected, label }: SvgShapeProps) {
+  const stroke = selected ? STROKE_SELECTED : STROKE_REST;
+  const mid = { x: width / 2, y: height / 2 };
+  const points = `${mid.x},0 ${width},${mid.y} ${mid.x},${height} 0,${mid.y}`;
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      style={{ display: "block", transition: "stroke 0.15s ease", overflow: "visible" }}
+    >
+      <polygon
+        points={points}
+        fill={FILL_COLOR}
+        stroke={stroke}
+        strokeWidth={STROKE_WIDTH}
+      />
+      <text
+        x={mid.x}
+        y={mid.y}
+        textAnchor="middle"
+        dominantBaseline="central"
+        style={{
+          fontSize: 12,
+          fontFamily: "var(--font-sans)",
+          fill: label ? "var(--text-primary)" : "var(--text-muted)",
+          fontStyle: label ? "normal" : "italic",
+          pointerEvents: "none",
+        }}
+      >
+        {label || "diamond"}
+      </text>
+    </svg>
+  );
+}
+
+function HexagonSvg({ width, height, selected, label }: SvgShapeProps) {
+  const stroke = selected ? STROKE_SELECTED : STROKE_REST;
+  const mid = { x: width / 2, y: height / 2 };
+  const qx = width * 0.25;
+  const qx3 = width * 0.75;
+  const points = `${qx},0 ${qx3},0 ${width},${mid.y} ${qx3},${height} ${qx},${height} 0,${mid.y}`;
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      style={{ display: "block", transition: "stroke 0.15s ease", overflow: "visible" }}
+    >
+      <polygon
+        points={points}
+        fill={FILL_COLOR}
+        stroke={stroke}
+        strokeWidth={STROKE_WIDTH}
+      />
+      <text
+        x={mid.x}
+        y={mid.y}
+        textAnchor="middle"
+        dominantBaseline="central"
+        style={{
+          fontSize: 12,
+          fontFamily: "var(--font-sans)",
+          fill: label ? "var(--text-primary)" : "var(--text-muted)",
+          fontStyle: label ? "normal" : "italic",
+          pointerEvents: "none",
+        }}
+      >
+        {label || "hexagon"}
+      </text>
+    </svg>
+  );
+}
+
+function CylinderSvg({ width, height, selected, label }: SvgShapeProps) {
+  const stroke = selected ? STROKE_SELECTED : STROKE_REST;
+  // Cap ellipse radius along Y axis — proportional to width
+  const ry = Math.max(6, width * 0.12);
+  const mid = { x: width / 2, y: height / 2 + ry / 2 };
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      style={{ display: "block", transition: "stroke 0.15s ease", overflow: "visible" }}
+    >
+      {/* Body rectangle */}
+      <rect
+        x={0}
+        y={ry}
+        width={width}
+        height={height - ry}
+        fill={FILL_COLOR}
+        stroke={stroke}
+        strokeWidth={STROKE_WIDTH}
+      />
+      {/* Bottom cap ellipse */}
+      <ellipse
+        cx={width / 2}
+        cy={height}
+        rx={width / 2}
+        ry={ry}
+        fill={FILL_COLOR}
+        stroke={stroke}
+        strokeWidth={STROKE_WIDTH}
+      />
+      {/* Top cap ellipse */}
+      <ellipse
+        cx={width / 2}
+        cy={ry}
+        rx={width / 2}
+        ry={ry}
+        fill={FILL_COLOR}
+        stroke={stroke}
+        strokeWidth={STROKE_WIDTH}
+      />
+      <text
+        x={mid.x}
+        y={mid.y}
+        textAnchor="middle"
+        dominantBaseline="central"
+        style={{
+          fontSize: 12,
+          fontFamily: "var(--font-sans)",
+          fill: label ? "var(--text-primary)" : "var(--text-muted)",
+          fontStyle: label ? "normal" : "italic",
+          pointerEvents: "none",
+        }}
+      >
+        {label || "cylinder"}
+      </text>
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CSS shape styles — rectangle, circle, pill
+// ---------------------------------------------------------------------------
+
+function getCssShapeStyle(shape: CanvasShape | undefined, selected: boolean): React.CSSProperties {
   const base: React.CSSProperties = {
     width: "100%",
     height: "100%",
@@ -52,54 +204,21 @@ function getShapeStyle(shape: CanvasShape | undefined, selected: boolean): React
     justifyContent: "center",
     boxSizing: "border-box",
     background: "var(--bg-surface)",
-    border: `1.5px solid ${selected ? "var(--accent-primary)" : "var(--border-default)"}`,
+    border: `${STROKE_WIDTH}px solid ${selected ? STROKE_SELECTED : STROKE_REST}`,
     transition: "border-color 0.15s ease",
     overflow: "hidden",
     position: "relative",
   };
 
   switch (shape) {
-    case "circle":   return { ...base, borderRadius: "50%" };
-    case "pill":     return { ...base, borderRadius: 9999 };
-    case "cylinder": return { ...base, borderRadius: "50% / 15%" };
-    case "diamond":
-      return {
-        ...base,
-        background: "transparent",
-        border: "none",
-        clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)",
-      };
-    case "hexagon":
-      return {
-        ...base,
-        background: "transparent",
-        border: "none",
-        clipPath: "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)",
-      };
+    case "circle":
+      return { ...base, borderRadius: "50%" };
+    case "pill":
+      return { ...base, borderRadius: 9999 };
     case "rectangle":
     default:
       return { ...base, borderRadius: 6 };
   }
-}
-
-// Diamond and hexagon need a filled inner layer since the outer uses clip-path (border gets clipped).
-function ClipFill({ shape, selected }: { shape: CanvasShape; selected: boolean }) {
-  const clipPath =
-    shape === "diamond"
-      ? "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)"
-      : "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)";
-  return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        background: "var(--bg-surface)",
-        border: `1.5px solid ${selected ? "var(--accent-primary)" : "var(--border-default)"}`,
-        clipPath,
-        transition: "border-color 0.15s ease",
-      }}
-    />
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +277,8 @@ function DimInput({ axis, value, onCommit }: DimInputProps) {
 // Custom node component
 // ---------------------------------------------------------------------------
 
+const SVG_SHAPES = new Set<CanvasShape>(["diamond", "hexagon", "cylinder"]);
+
 export const CanvasNodeComponent = memo(function CanvasNodeComponent({
   data,
   selected,
@@ -184,7 +305,7 @@ export const CanvasNodeComponent = memo(function CanvasNodeComponent({
     [id, setNodes],
   );
 
-  const needsClipFill = shape === "diamond" || shape === "hexagon";
+  const isSvgShape = shape !== undefined && SVG_SHAPES.has(shape);
 
   return (
     <div
@@ -202,31 +323,68 @@ export const CanvasNodeComponent = memo(function CanvasNodeComponent({
 
       <NodeHandles />
 
-      {/* Shape visual — inner div so clip-path doesn't swallow the handles */}
-      <div style={getShapeStyle(shape, !!selected)}>
-        {needsClipFill && <ClipFill shape={shape!} selected={!!selected} />}
-        <span
+      {isSvgShape ? (
+        /* SVG-based shapes — diamond, hexagon, cylinder */
+        <div
           style={{
-            fontSize: 12,
-            fontFamily: "var(--font-sans)",
-            color: "var(--text-primary)",
-            textAlign: "center",
-            lineHeight: 1.4,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            maxWidth: "80%",
-            position: "relative",
-            zIndex: 1,
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          {data.label || (
-            <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>
-              {shape ?? "node"}
-            </span>
+          {shape === "diamond" && (
+            <DiamondSvg
+              width={width}
+              height={height}
+              selected={!!selected}
+              label={data.label}
+              shape={shape}
+            />
           )}
-        </span>
-      </div>
+          {shape === "hexagon" && (
+            <HexagonSvg
+              width={width}
+              height={height}
+              selected={!!selected}
+              label={data.label}
+              shape={shape}
+            />
+          )}
+          {shape === "cylinder" && (
+            <CylinderSvg
+              width={width}
+              height={height}
+              selected={!!selected}
+              label={data.label}
+              shape={shape}
+            />
+          )}
+        </div>
+      ) : (
+        /* CSS-based shapes — rectangle, circle, pill */
+        <div style={getCssShapeStyle(shape, !!selected)}>
+          <span
+            style={{
+              fontSize: 12,
+              fontFamily: "var(--font-sans)",
+              color: data.label ? "var(--text-primary)" : "var(--text-muted)",
+              fontStyle: data.label ? "normal" : "italic",
+              textAlign: "center",
+              lineHeight: 1.4,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              maxWidth: "80%",
+              position: "relative",
+              zIndex: 1,
+            }}
+          >
+            {data.label || (shape ?? "node")}
+          </span>
+        </div>
+      )}
 
       {/* Dimension inputs — only on hover */}
       {isHovered && (

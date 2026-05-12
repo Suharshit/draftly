@@ -79,8 +79,7 @@ interface EdgeLabelProps {
   labelX: number;
   labelY: number;
   isActive: boolean;
-  /** When true, immediately enter editing mode on mount */
-  startEditing: boolean;
+  isEditing: boolean;
   onEditingChange: (editing: boolean) => void;
 }
 
@@ -90,23 +89,20 @@ function EdgeLabel({
   labelX,
   labelY,
   isActive,
-  startEditing,
+  isEditing,
   onEditingChange,
 }: EdgeLabelProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft]         = useState(label ?? "");
+  const [draft, setDraft] = useState(label ?? "");
+  const [prevIsEditing, setPrevIsEditing] = useState(isEditing);
   const inputRef = useRef<HTMLInputElement>(null);
   const { setEdges } = useReactFlow();
 
-  // Respond to parent requesting edit mode (double-click on invisible path)
-  useEffect(() => {
-    if (startEditing && !isEditing) {
+  if (isEditing !== prevIsEditing) {
+    setPrevIsEditing(isEditing);
+    if (isEditing) {
       setDraft(label ?? "");
-      setIsEditing(true);
-      onEditingChange(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startEditing]);
+  }
 
   // Auto-focus + select-all when entering edit mode
   useEffect(() => {
@@ -117,10 +113,8 @@ function EdgeLabel({
   }, [isEditing]);
 
   const enterEdit = useCallback(() => {
-    setDraft(label ?? "");
-    setIsEditing(true);
     onEditingChange(true);
-  }, [label, onEditingChange]);
+  }, [onEditingChange]);
 
   const commit = useCallback(() => {
     const trimmed = draft.trim();
@@ -131,12 +125,10 @@ function EdgeLabel({
           : e,
       ),
     );
-    setIsEditing(false);
     onEditingChange(false);
   }, [draft, edgeId, setEdges, onEditingChange]);
 
   const discard = useCallback(() => {
-    setIsEditing(false);
     onEditingChange(false);
   }, [onEditingChange]);
 
@@ -229,10 +221,9 @@ export function CanvasEdgeComponent({
   targetPosition,
   selected,
   data,
-  markerEnd: _markerEnd, // suppress default; we use our own
 }: EdgeProps<Edge<CanvasEdgeData>>) {
-  const [isHovered,    setIsHovered]    = useState(false);
-  const [startEditing, setStartEditing] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const isActive    = isHovered || !!selected;
   const strokeColor = isActive ? "var(--accent-primary)" : COLOR_REST;
@@ -276,7 +267,7 @@ export function CanvasEdgeComponent({
         onMouseLeave={() => setIsHovered(false)}
         onDoubleClick={(e) => {
           e.stopPropagation();
-          setStartEditing(true);
+          setIsEditing(true);
         }}
       />
 
@@ -287,10 +278,8 @@ export function CanvasEdgeComponent({
         labelX={labelX}
         labelY={labelY}
         isActive={isActive}
-        startEditing={startEditing}
-        onEditingChange={(editing) => {
-          if (!editing) setStartEditing(false);
-        }}
+        isEditing={isEditing}
+        onEditingChange={setIsEditing}
       />
     </>
   );

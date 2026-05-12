@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Complete the next feature spec unit after `11-base-canvas.md`.
+- Complete the next feature spec unit after `12-shape-panel.md`.
 
 ## Completed
 
@@ -166,13 +166,28 @@ Update this file whenever the current phase, active feature, or implementation s
     - Updated `app/globals.css`:
       - Added `@xyflow/react/dist/style.css`, `@liveblocks/react-ui/styles.css`, and `@liveblocks/react-flow/styles.css` imports
 
-## In Progress
+- Feature spec `12-shape-panel.md` completed:
+    - Added `CanvasShape` union type and `SHAPE_DEFAULTS` map to `types/canvas.ts`
+    - Added `components/editor/canvas-node.tsx`:
+      - Custom node renderer (`CanvasNodeComponent`) registered under `CANVAS_NODE_TYPE`
+      - Renders every shape as a bordered rectangle with a centered label
+      - `selected` state reflected via accent-colored border
+      - Four connection handles (Top, Bottom, Left, Right)
+    - Added `components/editor/shape-panel.tsx`:
+      - Floating pill-shaped toolbar positioned `bottom-6`, centered over the canvas
+      - Six draggable icon buttons: Rectangle, Circle, Diamond, Pill, Cylinder, Hexagon
+      - Drag payload (`ShapeDragPayload`) serialised to `application/ghost-shape` MIME type with shape name and default dimensions
+    - Updated `components/editor/canvas-flow.tsx`:
+      - Registered `nodeTypes` map with `CANVAS_NODE_TYPE → CanvasNodeComponent`
+      - Added `handleDragOver` to allow drops
+      - Added `handleDrop` to read shape payload, convert screen→flow coordinates via `screenToFlowPosition`, center node on drop point, and call `addNodes`
+      - Node ID generated from `{shape}-{Date.now()}-{counter}`
+      - `ShapePanel` rendered as absolute overlay inside the canvas `div`
 
-- None.
 
 ## Next Up
 
-- Select and implement the next feature spec unit after `11-base-canvas.md`.
+- Select and implement the next feature spec unit after `12-shape-panel.md`.
 
 ## Open Questions
 
@@ -262,7 +277,21 @@ Update this file whenever the current phase, active feature, or implementation s
 - Validation checks for `10-liveblocks-setup.md`:
     - `pnpm typecheck` passed
     - `pnpm lint` passed
-- Implemented `11-base-canvas.md` on 2026-05-12.
-- Validation checks for `11-base-canvas.md`:
+- Implemented `12-shape-panel.md` on 2026-05-12.
+- Validation checks for `12-shape-panel.md`:
     - `pnpm typecheck` passed
-    - `pnpm lint` passed
+    - `pnpm build` passed
+- Applied canvas UI fixes from `context/current-issuse.md` on 2026-05-12:
+    - Issue 1 (shape visuals): `canvas-node.tsx` now renders each shape using its correct CSS form:
+      - Rectangle: `border-radius: 6px`
+      - Circle: `border-radius: 50%`
+      - Pill: `border-radius: 9999px`
+      - Cylinder: `border-radius: 50% / 15%`
+      - Diamond: `clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)` with filled inner layer
+      - Hexagon: `clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)` with filled inner layer
+    - Issue 2 (curved edges): added `connectionLineType={ConnectionLineType.Bezier}` and `defaultEdgeOptions={{ type: "default" }}` to `<ReactFlow>` so all connections render as bezier curves
+    - Issue 3 (connection direction): replaced single-type handles with stacked source+target handles at every cardinal position (Top, Right, Bottom, Left) so drag direction always matches the resulting edge direction
+    - Issue 4 (resize + dimension labels): added `<NodeResizer>` for drag-to-resize; added `<DimInput>` components that show width/height pixel inputs on node hover, hidden otherwise; reduced `SHAPE_DEFAULTS` sizes by ~25%
+    - Validation checks:
+        - `pnpm typecheck` passed
+        - `pnpm build` passed

@@ -1,5 +1,32 @@
 import type { Node, Edge } from "@xyflow/react";
 
+// ---------------------------------------------------------------------------
+// Shape catalogue
+// ---------------------------------------------------------------------------
+
+/** All supported draggable shapes. */
+export type CanvasShape =
+  | "rectangle"
+  | "circle"
+  | "diamond"
+  | "pill"
+  | "cylinder"
+  | "hexagon";
+
+/** Default width / height for each shape (pixels). */
+export const SHAPE_DEFAULTS: Record<CanvasShape, { width: number; height: number }> = {
+  rectangle: { width: 120, height: 60 },
+  circle:    { width: 80,  height: 80 },
+  diamond:   { width: 100, height: 100 },
+  pill:      { width: 120, height: 52 },
+  cylinder:  { width: 90,  height: 80 },
+  hexagon:   { width: 100, height: 100 },
+};
+
+// ---------------------------------------------------------------------------
+// Node / edge types
+// ---------------------------------------------------------------------------
+
 /**
  * Data payload carried by every canvas node.
  * Shape and color are reserved for future custom node rendering.
@@ -7,7 +34,7 @@ import type { Node, Edge } from "@xyflow/react";
 export interface CanvasNodeData extends Record<string, unknown> {
   label: string;
   color?: string;
-  shape?: string;
+  shape?: CanvasShape;
 }
 
 /**

@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Complete the next feature spec unit after `17-canvas-ergonomics.md`.
+- Select and implement the next feature spec unit after `18-starter-template.md`.
 
 ## Completed
 
@@ -270,10 +270,40 @@ Update this file whenever the current phase, active feature, or implementation s
         - Imports `CanvasControlBar` and mounts it as an overlay inside the canvas `div`.
         - Calls `useKeyboardShortcuts` with `zoomIn`, `zoomOut`, `undo`, `redo` from React Flow + Liveblocks.
         - Added `deleteKeyCode={["Backspace", "Delete"]}` to `<ReactFlow>` for native keyboard deletion.
+- Feature spec `18-starter-template.md` completed:
+    - Added `components/editor/starter-templates.ts`:
+      - Introduced `CanvasTemplate` interface (`id`, `name`, `description`, `nodes`, `edges`).
+      - Added `createTemplateNode(id, label, x, y, shape, colorId)` helper that resolves `bg`/`text` from `NODE_COLOR_PALETTE`.
+      - Added `CANVAS_TEMPLATES` with three starter patterns:
+        - Microservices Architecture (gateway, auth/user/order services, shared database)
+        - CI/CD Pipeline (source control through production deployment)
+        - Event-Driven System (producer, bus/topic, multiple consumers)
+      - Enforced `type: CANVAS_NODE_TYPE` for nodes and `type: CANVAS_EDGE_TYPE` for edges in template definitions.
+    - Added `components/editor/starter-templates-modal.tsx`:
+      - `StarterTemplatesModal` with props `open`, `onOpenChange`, `onImport(template)`, and `templates`.
+      - Dialog content uses `EditorDialogShell` + `ScrollArea` with `grid-cols-1 md:grid-cols-2` template cards.
+      - Added import safety warning noting current canvas will be cleared.
+      - Added lightweight template preview renderer:
+        - Computes node bounding box
+        - Scales and centers content in fixed `aspect-video` viewport
+        - Renders nodes as styled `div`s by shape/color
+        - Renders edges as simple SVG lines between node centers
+    - Updated `components/editor/canvas-control-bar.tsx`:
+      - Added `onOpenTemplates` prop.
+      - Added `Templates` control button with `LayoutTemplate` icon.
+    - Updated `components/editor/canvas-flow.tsx`:
+      - Added modal state and mounted `StarterTemplatesModal`.
+      - Wired `CanvasControlBar` templates trigger.
+      - Implemented template import flow:
+        - Generates timestamp-prefixed IDs for imported nodes/edges
+        - Rewrites edge source/target with remapped node IDs
+        - Clears existing graph via `onDelete({ nodes, edges })`
+        - Adds imported nodes/edges via `onNodesChange`/`onEdgesChange` add changes
+        - Calls `fitView({ duration: 800 })` after import
 
 ## Next Up
 
-- Select and implement the next feature spec unit after `17-canvas-ergonomics.md`.
+- Select and implement the next feature spec unit after `18-starter-template.md`.
 
 ## Open Questions
 
@@ -395,3 +425,18 @@ Update this file whenever the current phase, active feature, or implementation s
 - Validation checks for `17-canvas-ergonomics.md`:
     - `pnpm typecheck` passed
     - `pnpm build` passed (exit code 0)
+- Implemented `18-starter-template.md` on 2026-05-13.
+- Validation checks for `18-starter-template.md`:
+    - `pnpm typecheck` passed
+- Applied starter template modal UI layout refinements on 2026-05-13:
+    - Increased starter template dialog width to a wide viewport-friendly layout (`min(92vw, 1200px)`).
+    - Switched template cards from wrapping grid to a single parallel horizontal row with fixed-width cards and horizontal scrolling.
+    - Added optional `contentClassName` support to `EditorDialogShell` so feature dialogs can control content width without modifying shared foundation UI.
+    - Validation checks:
+      - `pnpm typecheck` passed
+- Adjusted starter template dialog overflow and layout behavior on 2026-05-13:
+    - Increased dialog width further to `min(96vw, 1400px)` so template content fits within modal bounds.
+    - Replaced horizontal scrolling row with responsive in-dialog grid (`1 / 2 / 3` columns by breakpoint) to keep cards parallel without spilling outside the dialog.
+    - Kept card sizing unchanged while improving container behavior.
+    - Validation checks:
+      - `pnpm typecheck` passed

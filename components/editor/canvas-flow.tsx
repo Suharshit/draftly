@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import type { DragEvent } from "react";
 import {
   ReactFlow,
@@ -21,9 +21,11 @@ import { CanvasNodeComponent } from "@/components/editor/canvas-node";
 import { CanvasEdgeComponent, CanvasEdgeMarkerDefs } from "@/components/editor/canvas-edge";
 import { ShapePanel, SHAPE_DRAG_MIME, type ShapeDragPayload } from "@/components/editor/shape-panel";
 import { CanvasControlBar } from "@/components/editor/canvas-control-bar";
+import { StarterTemplatesModal } from "@/components/editor/starter-templates-modal";
+import { CANVAS_TEMPLATES, type CanvasTemplate } from "@/components/editor/starter-templates";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { CANVAS_NODE_TYPE, CANVAS_EDGE_TYPE } from "@/types/canvas";
-import type { CanvasNode } from "@/types/canvas";
+import type { CanvasEdge, CanvasNode } from "@/types/canvas";
 
 // ---------------------------------------------------------------------------
 // Custom node / edge type registration
@@ -53,14 +55,16 @@ function generateNodeId(shape: string): string {
 // ---------------------------------------------------------------------------
 
 function CanvasFlowInner() {
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, onDelete } =
-    useLiveblocksFlow({
+    useLiveblocksFlow<CanvasNode, CanvasEdge>({
       suspense: true,
       nodes: { initial: [] },
       edges: { initial: [] },
     });
 
-  const { screenToFlowPosition, addNodes, zoomIn, zoomOut } = useReactFlow<CanvasNode>();
+  const { screenToFlowPosition, addNodes, zoomIn, zoomOut, fitView } = useReactFlow<CanvasNode>();
 
   // Liveblocks history
   const undo = useUndo();
@@ -121,6 +125,60 @@ function CanvasFlowInner() {
     [screenToFlowPosition, addNodes],
   );
 
+  const handleImportTemplate = useCallback(
+    (template: CanvasTemplate) => {
+      const importPrefix = `${template.id}-${Date.now()}`;
+      const idMap = new Map<string, string>();
+
+      const importedNodes = template.nodes.map((node, index) => {
+        const nextId = `${importPrefix}-node-${index + 1}`;
+        idMap.set(node.id, nextId);
+
+        return {
+          ...node,
+          id: nextId,
+        };
+      });
+
+      const importedEdges = template.edges.map((edge, index) => {
+        const nextSource = idMap.get(edge.source);
+        const nextTarget = idMap.get(edge.target);
+        if (!nextSource || !nextTarget) {
+          return null;
+        }
+
+        return {
+          ...edge,
+          id: `${importPrefix}-edge-${index + 1}`,
+          source: nextSource,
+          target: nextTarget,
+        };
+      }).filter((edge): edge is NonNullable<typeof edge> => edge !== null);
+
+      onDelete({ nodes, edges });
+      onNodesChange(
+        importedNodes.map((node, index) => ({
+          type: "add",
+          item: node,
+          index,
+        })),
+      );
+      onEdgesChange(
+        importedEdges.map((edge, index) => ({
+          type: "add",
+          item: edge,
+          index,
+        })),
+      );
+
+      setIsTemplatesOpen(false);
+      window.setTimeout(() => {
+        fitView({ duration: 800 });
+      }, 0);
+    },
+    [edges, fitView, nodes, onDelete, onEdgesChange, onNodesChange],
+  );
+
   return (
     <div
       className="relative h-full w-full"
@@ -163,8 +221,14 @@ function CanvasFlowInner() {
       </ReactFlow>
 
       {/* Floating overlays */}
-      <CanvasControlBar />
+      <CanvasControlBar onOpenTemplates={() => setIsTemplatesOpen(true)} />
       <ShapePanel />
+      <StarterTemplatesModal
+        open={isTemplatesOpen}
+        onOpenChange={setIsTemplatesOpen}
+        onImport={handleImportTemplate}
+        templates={CANVAS_TEMPLATES}
+      />
     </div>
   );
 }

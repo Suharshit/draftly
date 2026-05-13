@@ -1,6 +1,6 @@
 "use client";
 
-import { ZoomIn, ZoomOut, Maximize, Undo2, Redo2 } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize, Undo2, Redo2, LayoutTemplate } from "lucide-react";
 import { useReactFlow } from "@xyflow/react";
 import { useUndo, useRedo, useCanUndo, useCanRedo } from "@liveblocks/react";
 
@@ -16,7 +16,11 @@ import { useUndo, useRedo, useCanUndo, useCanRedo } from "@liveblocks/react";
  *
  * Must be rendered inside both a ReactFlowProvider and a Liveblocks RoomProvider.
  */
-export function CanvasControlBar() {
+interface CanvasControlBarProps {
+  onOpenTemplates: () => void;
+}
+
+export function CanvasControlBar({ onOpenTemplates }: CanvasControlBarProps) {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
   const undo = useUndo();
   const redo = useRedo();
@@ -89,6 +93,24 @@ export function CanvasControlBar() {
         disabled={!canRedo}
       >
         <Redo2 className="h-4 w-4" />
+      </ControlButton>
+
+      <div
+        aria-hidden
+        style={{
+          width: 1,
+          height: 16,
+          background: "var(--border-default)",
+          margin: "0 6px",
+          flexShrink: 0,
+        }}
+      />
+
+      <ControlButton
+        label="Templates"
+        onClick={onOpenTemplates}
+      >
+        <LayoutTemplate className="h-4 w-4" />
       </ControlButton>
     </div>
   );

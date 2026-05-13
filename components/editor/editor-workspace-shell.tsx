@@ -4,12 +4,14 @@ import { useState } from "react";
 import { Bot, PanelLeftClose, PanelLeftOpen, Share2 } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 
+import { AiSidebar } from "@/components/editor/ai-sidebar";
 import { CanvasWrapper } from "@/components/editor/canvas-wrapper";
 import { ProjectDialogs } from "@/components/editor/project-dialogs";
 import { ProjectSidebar } from "@/components/editor/project-sidebar";
 import { ShareDialog } from "@/components/editor/share-dialog";
 import { Button } from "@/components/ui/button";
 import { useProjectActions } from "@/hooks/use-project-actions";
+import type { CanvasSaveStatus } from "@/hooks/use-canvas-autosave";
 import type { SidebarProject } from "@/lib/project-data";
 
 interface EditorWorkspaceShellProps {
@@ -17,6 +19,7 @@ interface EditorWorkspaceShellProps {
   projectName: string;
   ownedProjects: SidebarProject[];
   sharedProjects: SidebarProject[];
+  isOwner: boolean;
 }
 
 export function EditorWorkspaceShell({
@@ -24,10 +27,12 @@ export function EditorWorkspaceShell({
   projectName,
   ownedProjects,
   sharedProjects,
+  isOwner,
 }: EditorWorkspaceShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(true);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<CanvasSaveStatus>("idle");
   const {
     activeDialog,
     selectedProject,
@@ -61,6 +66,12 @@ export function EditorWorkspaceShell({
             <p className="truncate text-sm font-semibold text-foreground">{projectName}</p>
           </div>
           <div className="flex items-center gap-2">
+            <p className="text-xs text-muted-foreground" aria-live="polite">
+              {saveStatus === "saving" && "Saving..."}
+              {saveStatus === "saved" && "Saved"}
+              {saveStatus === "error" && "Save failed"}
+              {saveStatus === "idle" && (isOwner ? "Saved" : "View only")}
+            </p>
             <Button type="button" variant="outline" size="sm" onClick={() => setIsShareDialogOpen(true)}>
               <Share2 className="h-4 w-4" />
               Share
@@ -96,19 +107,13 @@ export function EditorWorkspaceShell({
           className="relative flex min-w-0 flex-1 overflow-hidden border-l border-border bg-background"
           aria-label="Collaborative canvas"
         >
-          <CanvasWrapper roomId={projectId} />
+          <CanvasWrapper
+            roomId={projectId}
+            canAutosave={isOwner}
+            onSaveStatusChange={setSaveStatus}
+          />
+          <AiSidebar open={isAiSidebarOpen} onClose={() => setIsAiSidebarOpen(false)} />
         </section>
-
-        {isAiSidebarOpen ? (
-          <aside className="hidden h-full w-80 shrink-0 border-l border-border bg-card/40 lg:flex lg:flex-col">
-            <div className="border-b border-border px-4 py-3">
-              <h2 className="text-sm font-medium text-foreground">AI Assistant</h2>
-            </div>
-            <div className="flex flex-1 items-center justify-center p-4 text-center">
-              <p className="text-sm text-muted-foreground">AI chat sidebar placeholder.</p>
-            </div>
-          </aside>
-        ) : null}
       </main>
 
       <ProjectDialogs

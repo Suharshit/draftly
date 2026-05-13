@@ -33,6 +33,7 @@ export default async function EditorWorkspacePage({ params }: EditorWorkspacePag
       projectName={project.name}
       ownedProjects={projectSidebarData.ownedProjects}
       sharedProjects={projectSidebarData.sharedProjects}
+      isOwner={project.isOwner}
     />
   );
 }

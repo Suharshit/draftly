@@ -4,6 +4,7 @@ import { Component, type ReactNode } from "react";
 import { LiveblocksProvider, RoomProvider, ClientSideSuspense } from "@liveblocks/react/suspense";
 
 import { CanvasFlow } from "@/components/editor/canvas-flow";
+import type { CanvasSaveStatus } from "@/hooks/use-canvas-autosave";
 
 // ---------------------------------------------------------------------------
 // Minimal error boundary — avoids adding a new package dependency.
@@ -44,6 +45,8 @@ class CanvasErrorBoundary extends Component<
 
 interface CanvasWrapperProps {
   roomId: string;
+  canAutosave: boolean;
+  onSaveStatusChange?: (status: CanvasSaveStatus) => void;
 }
 
 /**
@@ -55,7 +58,7 @@ interface CanvasWrapperProps {
  * - ClientSideSuspense defers rendering until the room is ready
  * - CanvasErrorBoundary catches Liveblocks connection failures
  */
-export function CanvasWrapper({ roomId }: CanvasWrapperProps) {
+export function CanvasWrapper({ roomId, canAutosave, onSaveStatusChange }: CanvasWrapperProps) {
   return (
     <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
       <RoomProvider
@@ -70,7 +73,11 @@ export function CanvasWrapper({ roomId }: CanvasWrapperProps) {
               </div>
             }
           >
-            <CanvasFlow />
+            <CanvasFlow
+              projectId={roomId}
+              canAutosave={canAutosave}
+              onSaveStatusChange={onSaveStatusChange}
+            />
           </ClientSideSuspense>
         </CanvasErrorBoundary>
       </RoomProvider>

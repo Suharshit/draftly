@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Select and implement the next feature spec unit after `19-presence-avatars-cursor.md`.
+- Select and implement the next feature spec unit after `21-canvas-autosave.md`.
 
 ## Completed
 
@@ -300,10 +300,30 @@ Update this file whenever the current phase, active feature, or implementation s
         - Clears existing graph via `onDelete({ nodes, edges })`
         - Adds imported nodes/edges via `onNodesChange`/`onEdgesChange` add changes
         - Calls `fitView({ duration: 800 })` after import
+- Feature spec `21-canvas-autosave.md` completed:
+    - Added `@vercel/blob` dependency for object-storage backed canvas snapshots.
+    - Added `app/api/projects/[projectId]/canvas/route.ts`:
+      - `PUT /api/projects/[projectId]/canvas` validates canvas payload shape (`nodes`/`edges` arrays with required node/edge fields), verifies auth + project access, uploads JSON to Vercel Blob, persists blob URL to `Project.canvasJsonPath`, and best-effort deletes the previous blob URL.
+      - `GET /api/projects/[projectId]/canvas` verifies auth + access, resolves `canvasJsonPath` from Prisma, fetches blob JSON when present, validates payload, and falls back to `{ nodes: [], edges: [] }` when missing/invalid/unreachable.
+    - Added `hooks/use-canvas-autosave.ts`:
+      - Debounced autosave (~2.5s) for canvas state changes.
+      - Retry logic (up to 3 attempts) on failed saves.
+      - `beforeunload` protection with `keepalive` save attempt and unsaved-changes warning.
+      - Exposes sync status union: `idle | saving | saved | error`.
+    - Updated `components/editor/canvas-flow.tsx`:
+      - On first mount, loads saved canvas from `GET` only when the Liveblocks room is empty.
+      - Skips blob load when room already contains collaborative state.
+      - Wires autosave hook and propagates save status to parent shell.
+    - Updated `components/editor/canvas-wrapper.tsx` and `components/editor/editor-workspace-shell.tsx`:
+      - Passed autosave capability/status props through wrapper.
+      - Enabled autosave only for project owners to avoid multi-user simultaneous blob uploads.
+      - Added top-bar save status indicator (`Saving...`, `Saved`, `Save failed`, `View only`).
+    - Updated `app/editor/[projectId]/page.tsx`:
+      - Passes project `isOwner` into workspace shell for autosave coordination.
 
 ## Next Up
 
-- Select and implement the next feature spec unit after `19-presence-avatars-cursor.md`.
+- Select and implement the next available feature spec unit after `21-canvas-autosave.md`.
 
 ## Open Questions
 
@@ -457,4 +477,30 @@ Update this file whenever the current phase, active feature, or implementation s
     - Replaced horizontal scrolling row with responsive in-dialog grid (`1 / 2 / 3` columns by breakpoint) to keep cards parallel without spilling outside the dialog.
     - Kept card sizing unchanged while improving container behavior.
     - Validation checks:
+      - `pnpm typecheck` passed
+- Implemented `20-ai-sidebar-shell.md` on 2026-05-13.
+    - Added `components/editor/ai-sidebar.tsx`:
+      - Header with Bot icon, title/subtitle, and close action (`onClose`)
+      - Tabs-based layout with `AI Architect` and `Specs` panels
+      - Architect panel mock chat surface with empty-state prompt chips, sample user/assistant bubbles, and bottom composer UI (`Textarea` + Send button)
+      - Specs panel with `Generate Spec` action, sample spec card, and disabled `Download` button
+    - Updated `components/editor/editor-workspace-shell.tsx`:
+      - Replaced inline AI placeholder with extracted `AiSidebar` component
+      - Kept parent-controlled open/close state
+      - Preserved right-side floating slide behavior using transform transitions within the canvas boundary
+- Applied AI sidebar chat interaction fixes on 2026-05-13:
+    - Updated `components/editor/ai-sidebar.tsx`:
+      - Added local mock chat state so typed prompts append to the chat area.
+      - Wired starter prompt chips to append as user messages when clicked.
+      - Removed hardcoded sample conversation messages.
+      - Composer behavior now supports `Enter` to send and `Shift+Enter` for newline.
+      - Replaced text send CTA with icon-only circular send button and added helper text (`Enter to send, Shift+Enter for a new line`).
+- Implemented `21-canvas-autosave.md` on 2026-05-13.
+    - Installed `@vercel/blob`.
+    - Added authenticated save/load canvas API at `app/api/projects/[projectId]/canvas/route.ts` with payload validation and blob URL persistence via `Project.canvasJsonPath`.
+    - Added debounced autosave hook with retry and unload protection: `hooks/use-canvas-autosave.ts`.
+    - Added initial blob-backed canvas hydration in `components/editor/canvas-flow.tsx`, guarded to only run when room state is empty.
+    - Added owner-coordinated autosave and top-nav sync indicator in `components/editor/editor-workspace-shell.tsx`.
+    - Validation checks:
+      - `pnpm lint` passed
       - `pnpm typecheck` passed

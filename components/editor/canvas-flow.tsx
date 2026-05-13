@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { DragEvent, PointerEvent } from "react";
 import {
   ReactFlow,
@@ -24,6 +24,7 @@ import { ShapePanel, SHAPE_DRAG_MIME, type ShapeDragPayload } from "@/components
 import { CanvasControlBar } from "@/components/editor/canvas-control-bar";
 import { StarterTemplatesModal } from "@/components/editor/starter-templates-modal";
 import { CANVAS_TEMPLATES, type CanvasTemplate } from "@/components/editor/starter-templates";
+import { useCanvasAutosave, type CanvasSaveStatus } from "@/hooks/use-canvas-autosave";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { CANVAS_NODE_TYPE, CANVAS_EDGE_TYPE } from "@/types/canvas";
 import type { CanvasEdge, CanvasNode } from "@/types/canvas";
@@ -55,8 +56,16 @@ function generateNodeId(shape: string): string {
 // Inner canvas — rendered inside ReactFlowProvider so useReactFlow() works
 // ---------------------------------------------------------------------------
 
-function CanvasFlowInner() {
+interface CanvasFlowInnerProps {
+  projectId: string;
+  canAutosave: boolean;
+  onSaveStatusChange?: (status: CanvasSaveStatus) => void;
+}
+
+function CanvasFlowInner({ projectId, canAutosave, onSaveStatusChange }: CanvasFlowInnerProps) {
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
+  const hasAttemptedHydrationRef = useRef(false);
 
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, onDelete } =
     useLiveblocksFlow<CanvasNode, CanvasEdge>({
@@ -79,6 +88,75 @@ function CanvasFlowInner() {
     undo,
     redo,
   });
+
+  useEffect(() => {
+    if (hasAttemptedHydrationRef.current) {
+      return;
+    }
+
+    hasAttemptedHydrationRef.current = true;
+
+    if (nodes.length > 0 || edges.length > 0) {
+      queueMicrotask(() => {
+        setIsHydrated(true);
+      });
+      return;
+    }
+
+    let canceled = false;
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/projects/${projectId}/canvas`, {
+          method: "GET",
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as { nodes?: CanvasNode[]; edges?: CanvasEdge[] };
+        if (canceled) {
+          return;
+        }
+
+        const loadedNodes = Array.isArray(payload.nodes) ? payload.nodes : [];
+        const loadedEdges = Array.isArray(payload.edges) ? payload.edges : [];
+
+        if (loadedNodes.length > 0) {
+          onNodesChange(
+            loadedNodes.map((node, index) => ({ type: "add", item: node, index })),
+          );
+        }
+        if (loadedEdges.length > 0) {
+          onEdgesChange(
+            loadedEdges.map((edge, index) => ({ type: "add", item: edge, index })),
+          );
+        }
+      } finally {
+        if (!canceled) {
+          queueMicrotask(() => {
+            setIsHydrated(true);
+          });
+        }
+      }
+    })();
+
+    return () => {
+      canceled = true;
+    };
+  }, [edges.length, nodes.length, onEdgesChange, onNodesChange, projectId]);
+
+  const { saveStatus } = useCanvasAutosave({
+    projectId,
+    nodes,
+    edges,
+    enabled: canAutosave && isHydrated,
+  });
+
+  useEffect(() => {
+    onSaveStatusChange?.(saveStatus);
+  }, [onSaveStatusChange, saveStatus]);
 
   const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
     if (e.dataTransfer.types.includes(SHAPE_DRAG_MIME)) {
@@ -260,10 +338,20 @@ function CanvasFlowInner() {
  * that useReactFlow() is available inside CanvasFlowInner without requiring
  * a separate provider in the parent tree.
  */
-export function CanvasFlow() {
+interface CanvasFlowProps {
+  projectId: string;
+  canAutosave: boolean;
+  onSaveStatusChange?: (status: CanvasSaveStatus) => void;
+}
+
+export function CanvasFlow({ projectId, canAutosave, onSaveStatusChange }: CanvasFlowProps) {
   return (
     <ReactFlowProvider>
-      <CanvasFlowInner />
+      <CanvasFlowInner
+        projectId={projectId}
+        canAutosave={canAutosave}
+        onSaveStatusChange={onSaveStatusChange}
+      />
     </ReactFlowProvider>
   );
 }

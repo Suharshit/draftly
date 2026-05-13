@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { DragEvent } from "react";
+import type { DragEvent, PointerEvent } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -14,11 +14,12 @@ import {
   type NodeTypes,
   type EdgeTypes,
 } from "@xyflow/react";
-import { useLiveblocksFlow, Cursors } from "@liveblocks/react-flow";
-import { useUndo, useRedo } from "@liveblocks/react";
+import { useLiveblocksFlow } from "@liveblocks/react-flow";
+import { useUndo, useRedo, useUpdateMyPresence } from "@liveblocks/react";
 
 import { CanvasNodeComponent } from "@/components/editor/canvas-node";
 import { CanvasEdgeComponent, CanvasEdgeMarkerDefs } from "@/components/editor/canvas-edge";
+import { CanvasPresenceOverlay, LiveCursors } from "@/components/editor/canvas-presence";
 import { ShapePanel, SHAPE_DRAG_MIME, type ShapeDragPayload } from "@/components/editor/shape-panel";
 import { CanvasControlBar } from "@/components/editor/canvas-control-bar";
 import { StarterTemplatesModal } from "@/components/editor/starter-templates-modal";
@@ -65,6 +66,7 @@ function CanvasFlowInner() {
     });
 
   const { screenToFlowPosition, addNodes, zoomIn, zoomOut, fitView } = useReactFlow<CanvasNode>();
+  const updateMyPresence = useUpdateMyPresence();
 
   // Liveblocks history
   const undo = useUndo();
@@ -179,11 +181,25 @@ function CanvasFlowInner() {
     [edges, fitView, nodes, onDelete, onEdgesChange, onNodesChange],
   );
 
+  const handlePointerMove = useCallback(
+    (e: PointerEvent<HTMLDivElement>) => {
+      const cursor = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      updateMyPresence({ cursor });
+    },
+    [screenToFlowPosition, updateMyPresence],
+  );
+
+  const handlePointerLeave = useCallback(() => {
+    updateMyPresence({ cursor: null });
+  }, [updateMyPresence]);
+
   return (
     <div
       className="relative h-full w-full"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
     >
       <CanvasEdgeMarkerDefs />
       <ReactFlow
@@ -201,7 +217,7 @@ function CanvasFlowInner() {
         defaultEdgeOptions={{ type: CANVAS_EDGE_TYPE }}
         deleteKeyCode={["Backspace", "Delete"]}
       >
-        <Cursors />
+        <LiveCursors />
         <MiniMap
           position="bottom-right"
           nodeColor={() => "var(--accent-primary)"}
@@ -221,6 +237,7 @@ function CanvasFlowInner() {
       </ReactFlow>
 
       {/* Floating overlays */}
+      <CanvasPresenceOverlay />
       <CanvasControlBar onOpenTemplates={() => setIsTemplatesOpen(true)} />
       <ShapePanel />
       <StarterTemplatesModal

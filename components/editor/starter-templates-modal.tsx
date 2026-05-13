@@ -91,7 +91,7 @@ function TemplatePreview({ template }: { template: CanvasTemplate }) {
   };
 
   return (
-    <div className="relative aspect-video overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--bg-base)]">
+    <div className="relative aspect-video overflow-hidden rounded-md border border-(--border-default) bg-(--bg-base)">
       <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${viewWidth} ${viewHeight}`}>
         {template.edges.map((edge) => {
           const source = getCenter(edge.source);
@@ -152,7 +152,7 @@ export function StarterTemplatesModal({
       description="Import a prebuilt architecture pattern into your canvas."
       contentClassName="w-[min(96vw,1000px)] sm:max-w-none"
     >
-      <p className="rounded-md border border-[var(--state-error)]/40 bg-[color-mix(in_srgb,var(--state-error)_12%,transparent)] px-3 py-2 text-xs text-[var(--text-primary)]">
+      <p className="rounded-md border border-(--state-error)/40 bg-[color-mix(in_srgb,var(--state-error)_12%,transparent)] px-3 py-2 text-xs text-(--text-primary)">
         Importing a template clears the current canvas before loading the selected pattern.
       </p>
 
@@ -161,10 +161,10 @@ export function StarterTemplatesModal({
           {templates.map((template) => (
             <div
               key={template.id}
-              className="rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] p-3"
+              className="rounded-md border border-(--border-default) bg-(--bg-surface) p-3"
             >
-              <h3 className="text-sm font-semibold text-[var(--text-primary)]">{template.name}</h3>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">{template.description}</p>
+              <h3 className="text-sm font-semibold text-(--text-primary)">{template.name}</h3>
+              <p className="mt-1 text-xs text-(--text-muted)">{template.description}</p>
               <div className="mt-3">
                 <TemplatePreview template={template} />
               </div>

@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Select and implement the next feature spec unit after `18-starter-template.md`.
+- Select and implement the next feature spec unit after `19-presence-avatars-cursor.md`.
 
 ## Completed
 
@@ -303,7 +303,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Select and implement the next feature spec unit after `18-starter-template.md`.
+- Select and implement the next feature spec unit after `19-presence-avatars-cursor.md`.
 
 ## Open Questions
 
@@ -357,7 +357,25 @@ Update this file whenever the current phase, active feature, or implementation s
     - Updated CI type-check step in `.github/workflows/ci.yml` to run `pnpm typecheck`.
     - Validation checks:
       - `pnpm typecheck` passed
-      - `pnpm lint` passed
+- Feature spec `19-presence-avatars-cursor.md` completed:
+    - Updated `liveblocks.config.ts` presence and user metadata:
+      - Presence now uses `cursor` and `thinking`
+      - User metadata now includes `{ id, info: { id, name, avatar, color } }`
+    - Updated `app/api/liveblocks-auth/route.ts` session user info payload to `{ id, name, avatar, color }`
+    - Updated `components/editor/canvas-wrapper.tsx` initial presence to `thinking: false`
+    - Added `components/ui/avatar.tsx` with Avatar primitives for image/fallback rendering
+    - Added `components/editor/canvas-presence.tsx`:
+      - Canvas-only top-right participant overlay (not navbar/global)
+      - Collaborator avatars from `useOthers()` excluding current Clerk user from `useUser()`
+      - Up to 5 overlapping avatars plus `+N` overflow chip
+      - Divider shown only when collaborators exist
+      - Current user rendered separately with Clerk `UserButton` (`h-8 w-8`)
+      - Custom live cursors for other participants with colored pointer + name badge
+    - Updated `components/editor/canvas-flow.tsx`:
+      - Broadcasts cursor using wrapper `onPointerMove` + `screenToFlowPosition` + `useUpdateMyPresence`
+      - Clears cursor on `onPointerLeave`
+      - Replaced default Liveblocks cursors with the custom cursor renderer
+      - Mounted the participant avatar overlay on top of the canvas
 - Implemented `07-wire-editor-home.md` on 2026-05-11.
 - Validation checks for `07-wire-editor-home.md`:
     - `pnpm typecheck` passed

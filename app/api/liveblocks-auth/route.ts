@@ -63,11 +63,11 @@ export async function POST(request: Request) {
     "Unknown";
 
   const avatar = user.imageUrl ?? "";
-  const cursorColor = getCursorColor(userId);
+  const color = getCursorColor(userId);
 
   // 7. Prepare an access-token session for this user and room.
   const session = liveblocks.prepareSession(userId, {
-    userInfo: { name, avatar, cursorColor },
+    userInfo: { id: userId, name, avatar, color },
   });
 
   session.allow(roomId, session.FULL_ACCESS);

@@ -15,12 +15,12 @@ export type CanvasShape =
 
 /** Default width / height for each shape (pixels). */
 export const SHAPE_DEFAULTS: Record<CanvasShape, { width: number; height: number }> = {
-  rectangle: { width: 120, height: 60 },
-  circle:    { width: 80,  height: 80 },
-  diamond:   { width: 100, height: 100 },
-  pill:      { width: 120, height: 52 },
-  cylinder:  { width: 90,  height: 80 },
-  hexagon:   { width: 100, height: 100 },
+  rectangle: { width: 110, height: 54 },
+  circle:    { width: 72,  height: 72 },
+  diamond:   { width: 90,  height: 90 },
+  pill:      { width: 110, height: 46 },
+  cylinder:  { width: 82,  height: 72 },
+  hexagon:   { width: 90,  height: 90 },
 };
 
 // ---------------------------------------------------------------------------
@@ -84,10 +84,12 @@ export interface CanvasNodeData extends Record<string, unknown> {
 export interface CanvasEdgeData extends Record<string, unknown> {
   /** Optional inline label displayed at the edge midpoint. */
   label?: string;
+  /** Edge stroke style. */
+  edgeStyle?: "solid" | "dashed" | "dotted";
   /**
    * Direction of arrowheads.
    * 'none'          — plain line, no arrowhead
-   * 'forward'       — arrowhead at target end only (default)
+   * 'forward'       — arrowhead at target end only
    * 'backward'      — arrowhead at source end only
    * 'bidirectional' — arrowheads at both ends
    */

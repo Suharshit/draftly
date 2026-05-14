@@ -20,16 +20,12 @@ import {
 } from "@xyflow/react";
 
 import type { CanvasNodeData, CanvasShape } from "@/types/canvas";
-import { NODE_COLOR_PALETTE } from "@/types/canvas";
-import type { NodeColorPair } from "@/types/canvas";
+// import { NODE_COLOR_PALETTE } from "@/types/canvas";
+// import type { NodeColorPair } from "@/types/canvas";
 
-// ---------------------------------------------------------------------------
-// Partial data update helper type
-// ---------------------------------------------------------------------------
-
-type NodeDataUpdate = Partial<
-  Pick<CanvasNodeData, "color" | "textColor" | "strokeColor" | "bold" | "italic" | "fontSize">
->;
+// type NodeDataUpdate = Partial<
+//   Pick<CanvasNodeData, "color" | "textColor" | "strokeColor" | "bold" | "italic" | "fontSize">
+// >;
 
 // ---------------------------------------------------------------------------
 // Handles — source + target at every cardinal position
@@ -93,7 +89,7 @@ const STROKE_SELECTED = "var(--accent-primary)";
 const DEFAULT_FILL    = "var(--bg-surface)";
 const DEFAULT_TEXT    = "var(--text-primary)";
 const MUTED_TEXT      = "var(--text-muted)";
-const STROKE_WIDTH    = 1;
+const STROKE_WIDTH    = 2;
 
 // ---------------------------------------------------------------------------
 // SVG shape props
@@ -119,29 +115,38 @@ interface SvgShapeProps {
 // ---------------------------------------------------------------------------
 
 function SvgLabel({
-  x, y, label, nodeTextColor, bold, italic, fontSize, placeholder,
+  width, height, label, nodeTextColor, bold, italic, fontSize, placeholder,
 }: {
-  x: number; y: number; label: string;
+  width: number; height: number; label: string;
   nodeTextColor: string; bold: boolean; italic: boolean; fontSize: number;
   placeholder: string;
 }) {
   return (
-    <text
-      x={x}
-      y={y}
-      textAnchor="middle"
-      dominantBaseline="central"
-      style={{
-        fontSize,
-        fontFamily: "var(--font-sans)",
-        fontWeight: bold ? "bold" : "normal",
-        fontStyle: italic || !label ? "italic" : "normal",
-        fill: label ? nodeTextColor : MUTED_TEXT,
-        pointerEvents: "none",
-      }}
-    >
-      {label || placeholder}
-    </text>
+    <foreignObject x={0} y={0} width={width} height={height} style={{ pointerEvents: "none" }}>
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "6px 8px",
+          boxSizing: "border-box",
+          textAlign: "center",
+          overflow: "hidden",
+          lineHeight: 1.25,
+          fontSize,
+          fontFamily: "var(--font-sans)",
+          fontWeight: bold ? "bold" : "normal",
+          fontStyle: italic || !label ? "italic" : "normal",
+          color: label ? nodeTextColor : MUTED_TEXT,
+          overflowWrap: "anywhere",
+          wordBreak: "break-word",
+        }}
+      >
+        {label || placeholder}
+      </div>
+    </foreignObject>
   );
 }
 
@@ -155,7 +160,7 @@ function DiamondSvg(p: SvgShapeProps) {
     >
       <polygon points={points} fill={p.fillColor} stroke={stroke} strokeWidth={STROKE_WIDTH} />
       {!p.isEditing && (
-        <SvgLabel x={mid.x} y={mid.y} label={p.label} nodeTextColor={p.nodeTextColor}
+        <SvgLabel width={p.width} height={p.height} label={p.label} nodeTextColor={p.nodeTextColor}
           bold={p.bold} italic={p.italic} fontSize={p.fontSize} placeholder="diamond" />
       )}
     </svg>
@@ -173,7 +178,7 @@ function HexagonSvg(p: SvgShapeProps) {
     >
       <polygon points={points} fill={p.fillColor} stroke={stroke} strokeWidth={STROKE_WIDTH} />
       {!p.isEditing && (
-        <SvgLabel x={mid.x} y={mid.y} label={p.label} nodeTextColor={p.nodeTextColor}
+        <SvgLabel width={p.width} height={p.height} label={p.label} nodeTextColor={p.nodeTextColor}
           bold={p.bold} italic={p.italic} fontSize={p.fontSize} placeholder="hexagon" />
       )}
     </svg>
@@ -182,20 +187,25 @@ function HexagonSvg(p: SvgShapeProps) {
 
 function CylinderSvg(p: SvgShapeProps) {
   const stroke = p.selected ? STROKE_SELECTED : p.strokeColor;
-  const ry = Math.max(6, p.width * 0.12);
-  const mid = { x: p.width / 2, y: p.height / 2 + ry / 2 };
+  const ry = Math.max(6, Math.min(16, p.height * 0.12));
+  const topY = ry + 1;
+  const bottomY = Math.max(topY + 8, p.height - ry - 1);
   return (
     <svg width={p.width} height={p.height} viewBox={`0 0 ${p.width} ${p.height}`}
       style={{ display: "block", transition: "stroke 0.15s ease", overflow: "visible" }}
     >
-      <rect x={0} y={ry} width={p.width} height={p.height - ry}
+      <rect
+        x={1}
+        y={topY}
+        width={p.width - 2}
+        height={Math.max(8, bottomY - topY)}
         fill={p.fillColor} stroke={stroke} strokeWidth={STROKE_WIDTH} />
-      <ellipse cx={p.width / 2} cy={p.height} rx={p.width / 2} ry={ry}
+      <ellipse cx={p.width / 2} cy={topY} rx={Math.max(2, p.width / 2 - 1)} ry={ry}
         fill={p.fillColor} stroke={stroke} strokeWidth={STROKE_WIDTH} />
-      <ellipse cx={p.width / 2} cy={ry} rx={p.width / 2} ry={ry}
+      <ellipse cx={p.width / 2} cy={bottomY} rx={Math.max(2, p.width / 2 - 1)} ry={ry}
         fill={p.fillColor} stroke={stroke} strokeWidth={STROKE_WIDTH} />
       {!p.isEditing && (
-        <SvgLabel x={mid.x} y={mid.y} label={p.label} nodeTextColor={p.nodeTextColor}
+        <SvgLabel width={p.width} height={p.height} label={p.label} nodeTextColor={p.nodeTextColor}
           bold={p.bold} italic={p.italic} fontSize={p.fontSize} placeholder="cylinder" />
       )}
     </svg>
@@ -231,215 +241,6 @@ function getCssShapeStyle(
     case "rectangle":
     default:        return { ...base, borderRadius: 6 };
   }
-}
-
-// ---------------------------------------------------------------------------
-// Toolbar helpers
-// ---------------------------------------------------------------------------
-
-function ToolbarDivider() {
-  return (
-    <span style={{
-      display: "inline-block", width: 1,
-      height: 16, background: "var(--border-default)",
-      margin: "0 6px", flexShrink: 0,
-    }} />
-  );
-}
-
-function ToolbarLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <span style={{
-      fontSize: 9, color: "var(--text-muted)",
-      userSelect: "none", marginRight: 4, flexShrink: 0,
-    }}>
-      {children}
-    </span>
-  );
-}
-
-function ToolbarBtn({
-  children, active, title, onClick, style,
-}: {
-  children: React.ReactNode;
-  active?: boolean;
-  title?: string;
-  onClick: (e: React.MouseEvent) => void;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <button
-      title={title}
-      onClick={(e) => { e.stopPropagation(); onClick(e); }}
-      style={{
-        display: "inline-flex", alignItems: "center", justifyContent: "center",
-        width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer",
-        background: active ? "var(--accent-primary)" : "transparent",
-        color: active ? "#fff" : "var(--text-muted)",
-        fontSize: 12, padding: 0, flexShrink: 0,
-        transition: "background 0.12s ease, color 0.12s ease",
-        ...style,
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Swatch — shared between fill and stroke sections
-// ---------------------------------------------------------------------------
-
-function Swatch({
-  pair, isActive, isStroke, onSelect,
-}: {
-  pair: NodeColorPair;
-  isActive: boolean;
-  isStroke: boolean;
-  onSelect: (pair: NodeColorPair) => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-
-  const baseStyle: React.CSSProperties = isStroke
-    ? {
-        background: `${pair.bg}28`,
-        border: `2px solid ${pair.bg}`,
-      }
-    : {
-        background: pair.bg,
-        border: isActive ? `3px solid ${pair.text}` : "3px solid transparent",
-      };
-
-  return (
-    <button
-      title={pair.label}
-      onClick={(e) => { e.stopPropagation(); onSelect(pair); }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        width: 16, height: 16, borderRadius: "50%", cursor: "pointer",
-        flexShrink: 0, padding: 0,
-        outline: isActive ? `1px solid ${pair.text}` : "none",
-        outlineOffset: 1,
-        transition: "box-shadow 0.12s ease",
-        boxShadow: hovered && !isActive
-          ? `0 0 0 3px ${pair.text}44`
-          : isActive
-          ? `0 0 0 2px ${pair.text}33`
-          : "none",
-        ...baseStyle,
-      }}
-    />
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Node format toolbar — rounded rectangle, above node when selected
-// ---------------------------------------------------------------------------
-
-interface NodeFormatToolbarProps {
-  data: CanvasNodeData;
-  onUpdate: (update: NodeDataUpdate) => void;
-}
-
-function NodeFormatToolbar({ data, onUpdate }: NodeFormatToolbarProps) {
-  const fontSize = data.fontSize ?? 12;
-
-  return (
-    <div
-      className="nodrag nopan"
-      onMouseDown={(e) => e.stopPropagation()}
-      style={{
-        position: "absolute",
-        bottom: "calc(100% + 10px)",
-        left: "50%",
-        transform: "translateX(-50%)",
-        display: "flex",
-        alignItems: "center",
-        gap: 0,
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border-default)",
-        borderRadius: 8,           // rounded rectangle, NOT pill
-        padding: "4px 8px",
-        zIndex: 50,
-        pointerEvents: "all",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.55)",
-        whiteSpace: "nowrap",
-      }}
-    >
-      {/* ── Fill colors ── */}
-      <ToolbarLabel>Fill</ToolbarLabel>
-      <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
-        {NODE_COLOR_PALETTE.map((pair) => (
-          <Swatch
-            key={pair.id}
-            pair={pair}
-            isStroke={false}
-            isActive={(data.color ?? NODE_COLOR_PALETTE[0].bg) === pair.bg}
-            onSelect={(p) => onUpdate({ color: p.bg, textColor: p.text })}
-          />
-        ))}
-      </div>
-
-      <ToolbarDivider />
-
-      {/* ── Stroke / outline colors ── */}
-      <ToolbarLabel>Stroke</ToolbarLabel>
-      <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
-        {NODE_COLOR_PALETTE.map((pair) => (
-          <Swatch
-            key={pair.id}
-            pair={pair}
-            isStroke
-            isActive={(data.strokeColor ?? NODE_COLOR_PALETTE[0].bg) === pair.bg}
-            onSelect={(p) => onUpdate({ strokeColor: p.bg })}
-          />
-        ))}
-      </div>
-
-      <ToolbarDivider />
-
-      {/* ── Text formatting ── */}
-      <ToolbarBtn
-        title="Bold"
-        active={!!data.bold}
-        onClick={() => onUpdate({ bold: !data.bold })}
-        style={{ fontWeight: "bold", fontSize: 13 }}
-      >
-        B
-      </ToolbarBtn>
-      <ToolbarBtn
-        title="Italic"
-        active={!!data.italic}
-        onClick={() => onUpdate({ italic: !data.italic })}
-        style={{ fontStyle: "italic", fontSize: 13 }}
-      >
-        I
-      </ToolbarBtn>
-
-      <ToolbarDivider />
-
-      {/* ── Font size ── */}
-      <ToolbarBtn
-        title="Decrease font size"
-        onClick={() => onUpdate({ fontSize: Math.max(8, fontSize - 1) })}
-      >
-        −
-      </ToolbarBtn>
-      <span style={{
-        fontSize: 10, color: "var(--text-muted)",
-        minWidth: 28, textAlign: "center", userSelect: "none", flexShrink: 0,
-      }}>
-        {fontSize}px
-      </span>
-      <ToolbarBtn
-        title="Increase font size"
-        onClick={() => onUpdate({ fontSize: Math.min(48, fontSize + 1) })}
-      >
-        +
-      </ToolbarBtn>
-    </div>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -507,16 +308,17 @@ export const CanvasNodeComponent = memo(function CanvasNodeComponent({
   data,
   selected,
   id,
+  width: nodeWidth,
+  height: nodeHeight,
 }: NodeProps<Node<CanvasNodeData>>) {
   const [isHovered, setIsHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
-  const { setNodes, getNode } = useReactFlow();
+  const { setNodes } = useReactFlow();
 
   const shape = data.shape;
-  const node = getNode(id);
-  const width  = (node?.style?.width  as number | undefined) ?? (node?.measured?.width  ?? 120);
-  const height = (node?.style?.height as number | undefined) ?? (node?.measured?.height ?? 60);
+  const width = typeof nodeWidth === "number" ? nodeWidth : 120;
+  const height = typeof nodeHeight === "number" ? nodeHeight : 60;
 
   // Derived color values
   const fillColor      = data.color       ?? DEFAULT_FILL;
@@ -526,18 +328,16 @@ export const CanvasNodeComponent = memo(function CanvasNodeComponent({
   const italic         = !!data.italic;
   const fontSize       = data.fontSize    ?? 12;
 
-  // ── Collaborative data updater ──────────────────────────────────────────
-  const handleDataUpdate = useCallback(
-    (update: NodeDataUpdate) => {
-      setNodes((nds) =>
-        nds.map((n) =>
-          n.id === id ? { ...n, data: { ...n.data, ...update } } : n,
-        ),
-      );
-    },
-    [id, setNodes],
-  );
-
+  // const handleDataUpdate = useCallback(
+  //   (update: NodeDataUpdate) => {
+  //     setNodes((nds) =>
+  //       nds.map((n) =>
+  //         n.id === id ? { ...n, data: { ...n.data, ...update } } : n,
+  //       ),
+  //     );
+  //   },
+  //   [id, setNodes],
+  // );
   // ── Label editing ────────────────────────────────────────────────────────
   const enterEditing = useCallback(() => {
     setEditValue(data.label ?? "");
@@ -574,11 +374,6 @@ export const CanvasNodeComponent = memo(function CanvasNodeComponent({
       onMouseLeave={() => setIsHovered(false)}
       onDoubleClick={(e) => { e.stopPropagation(); enterEditing(); }}
     >
-      {/* Format toolbar — visible when selected and not editing */}
-      {!!selected && !isEditing && (
-        <NodeFormatToolbar data={data} onUpdate={handleDataUpdate} />
-      )}
-
       <NodeResizer
         minWidth={40}
         minHeight={40}
@@ -605,9 +400,17 @@ export const CanvasNodeComponent = memo(function CanvasNodeComponent({
               fontWeight: bold ? "bold" : "normal",
               fontStyle: (italic || !data.label) ? "italic" : "normal",
               color: data.label ? nodeTextColor : MUTED_TEXT,
-              textAlign: "center", lineHeight: 1.4,
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-              maxWidth: "80%", position: "relative", zIndex: 1,
+              textAlign: "center",
+              lineHeight: 1.25,
+              overflow: "hidden",
+              maxWidth: "84%",
+              maxHeight: "78%",
+              display: "block",
+              whiteSpace: "normal",
+              overflowWrap: "anywhere",
+              wordBreak: "break-word",
+              position: "relative",
+              zIndex: 1,
             }}>
               {data.label || (shape ?? "node")}
             </span>

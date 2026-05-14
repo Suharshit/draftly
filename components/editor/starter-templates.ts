@@ -43,7 +43,8 @@ export function createTemplateNode(
       label,
       shape,
       color: color.bg,
-      textColor: color.text,
+      textColor: "var(--text-primary)",
+      strokeColor: "var(--text-primary)",
     },
   };
 }

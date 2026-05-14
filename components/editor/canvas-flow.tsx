@@ -60,11 +60,20 @@ interface CanvasFlowInnerProps {
   projectId: string;
   canAutosave: boolean;
   onSaveStatusChange?: (status: CanvasSaveStatus) => void;
+  isSidebarOpen: boolean;
 }
 
-function CanvasFlowInner({ projectId, canAutosave, onSaveStatusChange }: CanvasFlowInnerProps) {
+function CanvasFlowInner({
+  projectId,
+  canAutosave,
+  onSaveStatusChange,
+  isSidebarOpen,
+}: CanvasFlowInnerProps) {
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isMinimapOpen, setIsMinimapOpen] = useState(false);
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
+  const [interactionMode, setInteractionMode] = useState<"select" | "pan">("select");
   const hasAttemptedHydrationRef = useRef(false);
 
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, onDelete } =
@@ -158,6 +167,31 @@ function CanvasFlowInner({ projectId, canAutosave, onSaveStatusChange }: CanvasF
     onSaveStatusChange?.(saveStatus);
   }, [onSaveStatusChange, saveStatus]);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code === "Space") {
+        setIsSpacePressed(true);
+      }
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.code === "Space") {
+        setIsSpacePressed(false);
+      }
+    };
+    const onBlur = () => {
+      setIsSpacePressed(false);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
+
   const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
     if (e.dataTransfer.types.includes(SHAPE_DRAG_MIME)) {
       e.preventDefault();
@@ -196,6 +230,8 @@ function CanvasFlowInner({ projectId, canAutosave, onSaveStatusChange }: CanvasF
         data: {
           label: "",
           color: undefined,
+          textColor: "var(--text-primary)",
+          strokeColor: "var(--text-primary)",
           shape: payload.shape,
         },
       };
@@ -273,7 +309,7 @@ function CanvasFlowInner({ projectId, canAutosave, onSaveStatusChange }: CanvasF
 
   return (
     <div
-      className="relative h-full w-full"
+      className={`relative h-full w-full ${isSpacePressed ? "cursor-grab" : "cursor-default"}`}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onPointerMove={handlePointerMove}
@@ -292,20 +328,27 @@ function CanvasFlowInner({ projectId, canAutosave, onSaveStatusChange }: CanvasF
         fitView
         connectionMode={ConnectionMode.Loose}
         connectionLineType={ConnectionLineType.SmoothStep}
-        defaultEdgeOptions={{ type: CANVAS_EDGE_TYPE }}
+        defaultEdgeOptions={{ type: CANVAS_EDGE_TYPE, data: { arrowDirection: "none", edgeStyle: "solid" } }}
         deleteKeyCode={["Backspace", "Delete"]}
+        panOnScroll
+        zoomOnScroll={false}
+        panOnDrag={interactionMode === "pan"}
+        selectionOnDrag={interactionMode !== "pan"}
+        panActivationKeyCode="Space"
       >
         <LiveCursors />
-        <MiniMap
-          position="bottom-right"
-          nodeColor={() => "var(--accent-primary)"}
-          maskColor="rgba(9,9,11,0.6)"
-          style={{
-            background: "var(--bg-surface)",
-            border: "1px solid var(--border-default)",
-            borderRadius: 6,
-          }}
-        />
+        {isMinimapOpen ? (
+          <MiniMap
+            position="bottom-right"
+            nodeColor={() => "var(--accent-primary)"}
+            maskColor="rgba(9,9,11,0.6)"
+            style={{
+              background: "var(--bg-surface)",
+              border: "1px solid var(--border-default)",
+              borderRadius: 6,
+            }}
+          />
+        ) : null}
         <Background
           variant={BackgroundVariant.Dots}
           gap={20}
@@ -316,8 +359,13 @@ function CanvasFlowInner({ projectId, canAutosave, onSaveStatusChange }: CanvasF
 
       {/* Floating overlays */}
       <CanvasPresenceOverlay />
-      <CanvasControlBar onOpenTemplates={() => setIsTemplatesOpen(true)} />
-      <ShapePanel />
+      <CanvasControlBar
+        onOpenTemplates={() => setIsTemplatesOpen(true)}
+        isSidebarOpen={isSidebarOpen}
+        isMinimapOpen={isMinimapOpen}
+        onToggleMinimap={() => setIsMinimapOpen((prev) => !prev)}
+      />
+      <ShapePanel mode={interactionMode} onModeChange={setInteractionMode} />
       <StarterTemplatesModal
         open={isTemplatesOpen}
         onOpenChange={setIsTemplatesOpen}
@@ -342,15 +390,22 @@ interface CanvasFlowProps {
   projectId: string;
   canAutosave: boolean;
   onSaveStatusChange?: (status: CanvasSaveStatus) => void;
+  isSidebarOpen: boolean;
 }
 
-export function CanvasFlow({ projectId, canAutosave, onSaveStatusChange }: CanvasFlowProps) {
+export function CanvasFlow({
+  projectId,
+  canAutosave,
+  onSaveStatusChange,
+  isSidebarOpen,
+}: CanvasFlowProps) {
   return (
     <ReactFlowProvider>
       <CanvasFlowInner
         projectId={projectId}
         canAutosave={canAutosave}
         onSaveStatusChange={onSaveStatusChange}
+        isSidebarOpen={isSidebarOpen}
       />
     </ReactFlowProvider>
   );

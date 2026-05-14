@@ -239,205 +239,190 @@ function EdgeLabel({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Edge formatting toolbar — visible on selected edges (not editing)
-// ---------------------------------------------------------------------------
+// interface EdgeToolbarProps {
+//   edgeId: string;
+//   labelX: number;
+//   labelY: number;
+//   data: CanvasEdgeData;
+// }
 
-interface EdgeToolbarProps {
-  edgeId: string;
-  labelX: number;
-  labelY: number;
-  data: CanvasEdgeData;
-}
+// const ARROW_BUTTONS: { label: string; value: CanvasEdgeData["arrowDirection"]; symbol: string }[] = [
+//   { label: "No arrow", value: "none", symbol: "-" },
+//   { label: "Forward", value: "forward", symbol: "->" },
+//   { label: "Backward", value: "backward", symbol: "<-" },
+//   { label: "Bidirectional", value: "bidirectional", symbol: "<->" },
+// ];
 
-const ARROW_BUTTONS: { label: string; value: CanvasEdgeData["arrowDirection"]; symbol: string }[] = [
-  { label: "No arrow",      value: "none",          symbol: "—" },
-  { label: "Forward",       value: "forward",       symbol: "→" },
-  { label: "Backward",      value: "backward",      symbol: "←" },
-  { label: "Bidirectional", value: "bidirectional", symbol: "↔" },
-];
+// function EdgeToolbar({ edgeId, labelX, labelY, data }: EdgeToolbarProps) {
+//   const { setEdges } = useReactFlow();
 
-function EdgeToolbar({ edgeId, labelX, labelY, data }: EdgeToolbarProps) {
-  const { setEdges } = useReactFlow();
+//   const patch = useCallback(
+//     (patchValue: Partial<CanvasEdgeData>) => {
+//       setEdges((eds) =>
+//         eds.map((e) =>
+//           e.id === edgeId ? { ...e, data: { ...e.data, ...patchValue } } : e,
+//         ),
+//       );
+//     },
+//     [edgeId, setEdges],
+//   );
 
-  const patch = useCallback(
-    (patch: Partial<CanvasEdgeData>) => {
-      setEdges((eds) =>
-        eds.map((e) =>
-          e.id === edgeId ? { ...e, data: { ...e.data, ...patch } } : e,
-        ),
-      );
-    },
-    [edgeId, setEdges],
-  );
+//   const currentDirection = data.arrowDirection ?? "forward";
+//   const currentColorId = data.colorId ?? "default";
 
-  const currentDirection = data.arrowDirection ?? "forward";
-  const currentColorId   = data.colorId ?? "default";
+//   return (
+//     <EdgeLabelRenderer>
+//       <div
+//         className="nodrag nopan"
+//         onMouseDown={(e) => e.stopPropagation()}
+//         style={{
+//           position: "absolute",
+//           transform: `translate(-50%, -100%) translate(${labelX}px, ${labelY - 20}px)`,
+//           pointerEvents: "all",
+//           zIndex: 20,
+//           display: "flex",
+//           alignItems: "center",
+//           gap: 4,
+//           background: "var(--bg-surface)",
+//           border: "1px solid var(--border-default)",
+//           borderRadius: 8,
+//           padding: "4px 8px",
+//           boxShadow: "0 4px 16px rgba(0,0,0,0.45)",
+//         }}
+//       >
+//         {ARROW_BUTTONS.map(({ label, value, symbol }) => (
+//           <ToolbarButton
+//             key={value}
+//             label={label}
+//             active={currentDirection === value}
+//             onClick={() => patch({ arrowDirection: value })}
+//             mono
+//           >
+//             {symbol}
+//           </ToolbarButton>
+//         ))}
 
-  return (
-    <EdgeLabelRenderer>
-      <div
-        className="nodrag nopan"
-        onMouseDown={(e) => e.stopPropagation()}
-        style={{
-          position: "absolute",
-          transform: `translate(-50%, -100%) translate(${labelX}px, ${labelY - 20}px)`,
-          pointerEvents: "all",
-          zIndex: 20,
-          display: "flex",
-          alignItems: "center",
-          gap: 4,
-          background: "var(--bg-surface)",
-          border: "1px solid var(--border-default)",
-          borderRadius: 8,
-          padding: "4px 8px",
-          boxShadow: "0 4px 16px rgba(0,0,0,0.45)",
-        }}
-      >
-        {/* Arrow direction buttons */}
-        {ARROW_BUTTONS.map(({ label, value, symbol }) => (
-          <ToolbarButton
-            key={value}
-            label={label}
-            active={currentDirection === value}
-            onClick={() => patch({ arrowDirection: value })}
-            mono
-          >
-            {symbol}
-          </ToolbarButton>
-        ))}
+//         <ToolbarDivider />
 
-        {/* Divider */}
-        <ToolbarDivider />
+//         <ToolbarButton
+//           label="Bold"
+//           active={!!data.bold}
+//           onClick={() => patch({ bold: !data.bold })}
+//           mono={false}
+//           bold
+//         >
+//           B
+//         </ToolbarButton>
+//         <ToolbarButton
+//           label="Italic"
+//           active={!!data.italic}
+//           onClick={() => patch({ italic: !data.italic })}
+//           mono={false}
+//           italic
+//         >
+//           I
+//         </ToolbarButton>
 
-        {/* Bold / Italic toggles */}
-        <ToolbarButton
-          label="Bold"
-          active={!!data.bold}
-          onClick={() => patch({ bold: !data.bold })}
-          mono={false}
-          bold
-        >
-          B
-        </ToolbarButton>
-        <ToolbarButton
-          label="Italic"
-          active={!!data.italic}
-          onClick={() => patch({ italic: !data.italic })}
-          mono={false}
-          italic
-        >
-          I
-        </ToolbarButton>
+//         <ToolbarDivider />
 
-        {/* Divider */}
-        <ToolbarDivider />
+//         {NODE_COLOR_PALETTE.map((pair) => {
+//           const isDefault = pair.id === "default";
+//           const isActive = currentColorId === pair.id;
+//           return (
+//             <button
+//               key={pair.id}
+//               title={pair.label}
+//               aria-label={`Edge color: ${pair.label}`}
+//               onClick={() =>
+//                 patch({
+//                   color: isDefault ? undefined : pair.text,
+//                   colorId: isDefault ? undefined : pair.id,
+//                 })
+//               }
+//               style={{
+//                 width: 14,
+//                 height: 14,
+//                 borderRadius: 9999,
+//                 background: isDefault ? "var(--border-default)" : pair.text,
+//                 border: isActive ? "2px solid var(--text-primary)" : "2px solid transparent",
+//                 cursor: "pointer",
+//                 flexShrink: 0,
+//                 outline: isActive ? `2px solid ${pair.text}40` : "none",
+//                 outlineOffset: 1,
+//                 transition: "border-color 0.1s, outline 0.1s",
+//               }}
+//             />
+//           );
+//         })}
+//       </div>
+//     </EdgeLabelRenderer>
+//   );
+// }
 
-        {/* Color swatches */}
-        {NODE_COLOR_PALETTE.map((pair) => {
-          const isDefault = pair.id === "default";
-          const isActive  = currentColorId === pair.id;
-          return (
-            <button
-              key={pair.id}
-              title={pair.label}
-              aria-label={`Edge color: ${pair.label}`}
-              onClick={() =>
-                patch({
-                  color:   isDefault ? undefined : pair.text,
-                  colorId: isDefault ? undefined : pair.id,
-                })
-              }
-              style={{
-                width: 14,
-                height: 14,
-                borderRadius: 9999,
-                background: isDefault ? "var(--border-default)" : pair.text,
-                border: isActive
-                  ? `2px solid var(--text-primary)`
-                  : "2px solid transparent",
-                cursor: "pointer",
-                flexShrink: 0,
-                outline: isActive ? `2px solid ${pair.text}40` : "none",
-                outlineOffset: 1,
-                transition: "border-color 0.1s, outline 0.1s",
-              }}
-            />
-          );
-        })}
-      </div>
-    </EdgeLabelRenderer>
-  );
-}
+// interface ToolbarButtonProps {
+//   label: string;
+//   active: boolean;
+//   onClick: () => void;
+//   children: React.ReactNode;
+//   mono?: boolean;
+//   bold?: boolean;
+//   italic?: boolean;
+// }
 
-// ---------------------------------------------------------------------------
-// Toolbar sub-components
-// ---------------------------------------------------------------------------
+// function ToolbarButton({
+//   label,
+//   active,
+//   onClick,
+//   children,
+//   mono = true,
+//   bold = false,
+//   italic = false,
+// }: ToolbarButtonProps) {
+//   return (
+//     <button
+//       title={label}
+//       aria-label={label}
+//       onClick={onClick}
+//       style={{
+//         display: "flex",
+//         alignItems: "center",
+//         justifyContent: "center",
+//         minWidth: 22,
+//         height: 22,
+//         padding: "0 4px",
+//         borderRadius: 4,
+//         border: "none",
+//         background: active
+//           ? "color-mix(in srgb, var(--accent-primary) 15%, transparent)"
+//           : "transparent",
+//         color: active ? "var(--accent-primary)" : "var(--text-muted)",
+//         fontSize: 12,
+//         fontWeight: bold ? "bold" : "normal",
+//         fontStyle: italic ? "italic" : "normal",
+//         fontFamily: mono ? "var(--font-mono)" : "var(--font-sans)",
+//         cursor: "pointer",
+//         transition: "background 0.1s, color 0.1s",
+//       }}
+//     >
+//       {children}
+//     </button>
+//   );
+// }
 
-interface ToolbarButtonProps {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-  mono?: boolean;
-  bold?: boolean;
-  italic?: boolean;
-}
-
-function ToolbarButton({
-  label,
-  active,
-  onClick,
-  children,
-  mono = true,
-  bold = false,
-  italic = false,
-}: ToolbarButtonProps) {
-  return (
-    <button
-      title={label}
-      aria-label={label}
-      onClick={onClick}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        minWidth: 22,
-        height: 22,
-        padding: "0 4px",
-        borderRadius: 4,
-        border: "none",
-        background: active
-          ? "color-mix(in srgb, var(--accent-primary) 15%, transparent)"
-          : "transparent",
-        color: active ? "var(--accent-primary)" : "var(--text-muted)",
-        fontSize: 12,
-        fontWeight: bold ? "bold" : "normal",
-        fontStyle: italic ? "italic" : "normal",
-        fontFamily: mono ? "var(--font-mono)" : "var(--font-sans)",
-        cursor: "pointer",
-        transition: "background 0.1s, color 0.1s",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function ToolbarDivider() {
-  return (
-    <div
-      aria-hidden
-      style={{
-        width: 1,
-        height: 14,
-        background: "var(--border-default)",
-        flexShrink: 0,
-        margin: "0 2px",
-      }}
-    />
-  );
-}
+// function ToolbarDivider() {
+//   return (
+//     <div
+//       aria-hidden
+//       style={{
+//         width: 1,
+//         height: 14,
+//         background: "var(--border-default)",
+//         flexShrink: 0,
+//         margin: "0 2px",
+//       }}
+//     />
+//   );
+// }
 
 // ---------------------------------------------------------------------------
 // Main custom edge component
@@ -467,8 +452,16 @@ export function CanvasEdgeComponent({
       ? "var(--accent-primary)"
       : COLOR_REST;
 
+  const edgeStyle = data?.edgeStyle ?? "solid";
+  const strokeDasharray =
+    edgeStyle === "dashed"
+      ? "8 6"
+      : edgeStyle === "dotted"
+        ? "2 6"
+        : undefined;
+
   // ── Arrowhead direction ───────────────────────────────────────────────────
-  const direction = data?.arrowDirection ?? "forward";
+  const direction = data?.arrowDirection ?? "none";
   const state     = isActive ? "active" : "rest";
   const colorId   = data?.colorId; // undefined → default marker pair
 
@@ -492,8 +485,7 @@ export function CanvasEdgeComponent({
   });
 
   const label     = typeof data?.label === "string" ? data.label : undefined;
-  const showToolbar = !!selected && !isEditing;
-
+  // const showToolbar = !!selected && !isEditing;
   return (
     <>
       {/* Visible right-angle path */}
@@ -505,6 +497,7 @@ export function CanvasEdgeComponent({
           stroke: strokeColor,
           strokeWidth: STROKE_WIDTH,
           strokeLinecap: "round",
+          strokeDasharray,
           transition: "stroke 0.15s ease",
           fill: "none",
         }}
@@ -538,16 +531,6 @@ export function CanvasEdgeComponent({
         italic={data?.italic}
         fontSize={data?.fontSize}
       />
-
-      {/* Edge formatting toolbar — shown when selected and not editing label */}
-      {showToolbar && data && (
-        <EdgeToolbar
-          edgeId={id}
-          labelX={labelX}
-          labelY={labelY}
-          data={data}
-        />
-      )}
     </>
   );
 }

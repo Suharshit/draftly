@@ -8,6 +8,8 @@ import {
   Pill,
   Cylinder,
   Hexagon,
+  MousePointer2,
+  Hand,
   type LucideIcon,
 } from "lucide-react";
 
@@ -142,7 +144,13 @@ function ShapeGhostPreview({ drag }: { drag: DragState }) {
  * Rendered inside the canvas section so it overlays the React Flow surface.
  * Shows a ghost preview following the cursor while dragging.
  */
-export function ShapePanel() {
+export function ShapePanel({
+  mode,
+  onModeChange,
+}: {
+  mode: "select" | "pan";
+  onModeChange: (mode: "select" | "pan") => void;
+}) {
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragActive = useRef(false);
 
@@ -207,10 +215,57 @@ export function ShapePanel() {
         aria-label="Shape panel"
       >
         <div
-          className="pointer-events-auto flex items-center gap-1 rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 shadow-lg"
+          className="pointer-events-auto flex items-center gap-1 rounded-full border border-(--border-default) bg-(--bg-surface) px-3 py-2 shadow-lg"
           role="toolbar"
           aria-label="Draggable shapes"
         >
+          <button
+            type="button"
+            onClick={() => onModeChange("select")}
+            title="Select"
+            aria-label="Select"
+            className={`group flex flex-col items-center gap-1 rounded-lg px-2.5 py-2 transition-colors ${
+              mode === "select" ? "bg-(--accent-primary)/15" : "hover:bg-(--accent-primary)/10"
+            }`}
+          >
+            <MousePointer2
+              className={`h-5 w-5 transition-colors ${
+                mode === "select" ? "text-(--accent-primary)" : "text-(--text-muted) group-hover:text-(--accent-primary)"
+              }`}
+              strokeWidth={1.5}
+            />
+            <span
+              className={`text-[10px] leading-none transition-colors ${
+                mode === "select" ? "text-(--text-primary)" : "text-(--text-muted) group-hover:text-(--text-primary)"
+              }`}
+            >
+              Select
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onModeChange("pan")}
+            title="Pan"
+            aria-label="Pan"
+            className={`group flex flex-col items-center gap-1 rounded-lg px-2.5 py-2 transition-colors ${
+              mode === "pan" ? "bg-(--accent-primary)/15" : "hover:bg-(--accent-primary)/10"
+            }`}
+          >
+            <Hand
+              className={`h-5 w-5 transition-colors ${
+                mode === "pan" ? "text-(--accent-primary)" : "text-(--text-muted) group-hover:text-(--accent-primary)"
+              }`}
+              strokeWidth={1.5}
+            />
+            <span
+              className={`text-[10px] leading-none transition-colors ${
+                mode === "pan" ? "text-(--text-primary)" : "text-(--text-muted) group-hover:text-(--text-primary)"
+              }`}
+            >
+              Pan
+            </span>
+          </button>
+          <div className="mx-1 h-7 w-px bg-(--border-default)" aria-hidden />
           {SHAPES.map((entry) => (
             <button
               key={entry.shape}
@@ -220,13 +275,13 @@ export function ShapePanel() {
               onDragEnd={handleDragEnd}
               title={entry.label}
               aria-label={`Drag ${entry.label} shape onto canvas`}
-              className="group flex cursor-grab flex-col items-center gap-1 rounded-lg px-2.5 py-2 transition-colors hover:bg-[var(--accent-primary)]/10 active:cursor-grabbing"
+              className="group flex cursor-grab flex-col items-center gap-1 rounded-lg px-2.5 py-2 transition-colors hover:bg-(--accent-primary)/10 active:cursor-grabbing"
             >
               <entry.Icon
-                className="h-5 w-5 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-primary)]"
+                className="h-5 w-5 text-(--text-muted) transition-colors group-hover:text-(--accent-primary)"
                 strokeWidth={1.5}
               />
-              <span className="text-[10px] leading-none text-[var(--text-muted)] transition-colors group-hover:text-[var(--text-primary)]">
+              <span className="text-[10px] leading-none text-(--text-muted) transition-colors group-hover:text-(--text-primary)">
                 {entry.label}
               </span>
             </button>

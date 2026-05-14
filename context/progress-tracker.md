@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Select and implement the next feature spec unit after `21-canvas-autosave.md`.
+- Select and implement the next feature spec unit after `21-canvas-autosave.md` and latest `current-issuse.md` adjustments.
 
 ## Completed
 
@@ -323,7 +323,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Select and implement the next available feature spec unit after `21-canvas-autosave.md`.
+- Select and implement the next available feature spec unit after `21-canvas-autosave.md` and current UI/UX issue fixes.
 
 ## Open Questions
 
@@ -504,3 +504,51 @@ Update this file whenever the current phase, active feature, or implementation s
     - Validation checks:
       - `pnpm lint` passed
       - `pnpm typecheck` passed
+- Applied canvas interaction and control-bar fixes from `context/current-issuse.md` on 2026-05-13:
+    - Updated `components/editor/canvas-flow.tsx`:
+      - Switched to selection-first interactions: `panOnDrag={false}`, `selectionOnDrag`, `panActivationKeyCode="Space"`.
+      - Added Space-key cursor behavior so grab cursor appears only while Space is held.
+      - Added minimap toggle state and conditional minimap rendering (`isMinimapOpen`, default `false`).
+      - Wired minimap toggle and sidebar visibility props into the control bar.
+    - Updated `components/editor/canvas-control-bar.tsx`:
+      - Redesigned to rounded rectangle (`borderRadius: 12`) instead of pill.
+      - Added contextual single-selection controls (node/edge color + text formatting) when exactly one item is selected.
+      - Enforced multi-selection constraints: when more than one item is selected, only delete action appears (no formatting controls).
+      - Added minimap show/hide toggle button in the left controls group.
+      - Hides completely when project sidebar is open.
+    - Updated `components/editor/editor-workspace-shell.tsx` and `components/editor/canvas-wrapper.tsx`:
+      - Passed `isSidebarOpen` into canvas layers so the control bar can hide dynamically.
+    - Updated `components/editor/canvas-node.tsx`:
+      - Bound SVG shape render dimensions to live node props (`width`, `height`) so cylinder/diamond/hexagon redraw correctly during resize.
+    - Validation checks:
+      - `pnpm lint` passed
+      - `pnpm typecheck` passed
+- Applied canvas UI/UX enhancements from `context/current-issuse.md` on 2026-05-14:
+    - Updated `components/editor/canvas-control-bar.tsx`:
+      - Switched selected node/edge lookup to reactive `useNodes`/`useEdges` sources so formatting controls (including font size value) update immediately when edge/node data changes.
+      - Updated edge arrow toggle default selection fallback from `forward` to `none`.
+      - Updated active arrow toggle text color to `var(--text-primary)` token.
+    - Updated `components/editor/canvas-flow.tsx`:
+      - Set new connection defaults to `defaultEdgeOptions={{ type: CANVAS_EDGE_TYPE, data: { arrowDirection: "none" } }}` so new edges start without arrowheads.
+    - Updated `components/editor/canvas-edge.tsx`:
+      - Changed edge render fallback to `arrowDirection: "none"` when unset.
+    - Updated `components/editor/canvas-node.tsx`:
+      - Simplified the cylinder SVG back to a single-cylinder form (removed the middle band ellipse).
+    - Updated `components/editor/canvas-flow.tsx`:
+      - New nodes now default `textColor` and `strokeColor` to `var(--text-primary)` on creation.
+    - Updated `types/canvas.ts`:
+      - Reduced default shape sizes for newly created nodes.
+    - Updated `components/editor/canvas-control-bar.tsx`:
+      - Added edge style controls (solid, dashed, dotted) under the Arrow section.
+    - Updated `components/editor/canvas-edge.tsx`:
+      - Applied edge stroke style (solid, dashed, dotted) based on `data.edgeStyle`.
+    - Updated `components/editor/canvas-flow.tsx`:
+      - Default edge options now include `edgeStyle: "solid"`.
+    - Updated `components/editor/starter-templates.ts`:
+      - Starter template nodes now default `textColor` and `strokeColor` to `var(--text-primary)`.
+    - Updated `components/editor/shape-panel.tsx` and `components/editor/canvas-flow.tsx`:
+      - Added select/pan toggle buttons to the shape panel and wired them to React Flow pan/selection modes.
+    - Updated `components/editor/canvas-node.tsx`:
+      - Replaced SVG text labels with `foreignObject`-based wrapped label containers for diamond/hexagon/cylinder so long labels stack and clip within node bounds.
+      - Updated CSS-shape label style to multiline wrapping with bounded height and hidden overflow instead of single-line ellipsis.
+      - Reworked cylinder renderer into a stacked database-style cylinder (top, middle, and bottom elliptical bands).

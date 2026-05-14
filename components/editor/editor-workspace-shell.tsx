@@ -111,6 +111,7 @@ export function EditorWorkspaceShell({
             roomId={projectId}
             canAutosave={isOwner}
             onSaveStatusChange={setSaveStatus}
+            isSidebarOpen={isSidebarOpen}
           />
           <AiSidebar open={isAiSidebarOpen} onClose={() => setIsAiSidebarOpen(false)} />
         </section>

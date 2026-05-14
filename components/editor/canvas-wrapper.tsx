@@ -47,6 +47,7 @@ interface CanvasWrapperProps {
   roomId: string;
   canAutosave: boolean;
   onSaveStatusChange?: (status: CanvasSaveStatus) => void;
+  isSidebarOpen: boolean;
 }
 
 /**
@@ -58,7 +59,12 @@ interface CanvasWrapperProps {
  * - ClientSideSuspense defers rendering until the room is ready
  * - CanvasErrorBoundary catches Liveblocks connection failures
  */
-export function CanvasWrapper({ roomId, canAutosave, onSaveStatusChange }: CanvasWrapperProps) {
+export function CanvasWrapper({
+  roomId,
+  canAutosave,
+  onSaveStatusChange,
+  isSidebarOpen,
+}: CanvasWrapperProps) {
   return (
     <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
       <RoomProvider
@@ -77,6 +83,7 @@ export function CanvasWrapper({ roomId, canAutosave, onSaveStatusChange }: Canva
               projectId={roomId}
               canAutosave={canAutosave}
               onSaveStatusChange={onSaveStatusChange}
+              isSidebarOpen={isSidebarOpen}
             />
           </ClientSideSuspense>
         </CanvasErrorBoundary>

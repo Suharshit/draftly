@@ -551,6 +551,9 @@ Update this file whenever the current phase, active feature, or implementation s
     - Updated app icons:
       - Added `app/icon.png` using the ghost logo and removed the invalid `app/favicon.ico`.
       - Center-cropped the logo to a square without resizing for `app/icon.png` and `app/apple-icon.png`.
+    - Updated build pipeline for Prisma:
+      - Removed `postinstall` Prisma generate and kept generation in the builder stage.
+      - Removed schema/config copy from the Docker deps stage to keep installs pure.
     - Updated `components/editor/canvas-node.tsx`:
       - Replaced SVG text labels with `foreignObject`-based wrapped label containers for diamond/hexagon/cylinder so long labels stack and clip within node bounds.
       - Updated CSS-shape label style to multiline wrapping with bounded height and hidden overflow instead of single-line ellipsis.

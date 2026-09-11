@@ -4,30 +4,23 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main]
+
+# A new push to the same branch supersedes the run already in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   ci:
     name: Lint, Type-check & Build
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: ghost
-          POSTGRES_PASSWORD: ghost
-          POSTGRES_DB: ghost_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     env:
-      DATABASE_URL: postgresql://ghost:ghost@localhost:5432/ghost_test
+      # No database is reached in CI. `lib/prisma.ts` throws at import time when
+      # DATABASE_URL is unset, and `next build` imports it while collecting page
+      # data, so a well-formed placeholder is all that is needed. The adapter
+      # does not open a connection until a query runs.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
       CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
       LIVEBLOCKS_SECRET_KEY: ${{ vars.LIVEBLOCKS_SECRET_KEY }}
@@ -37,33 +30,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # No `version` here on purpose: the action reads package.json#packageManager,
+      # which keeps CI on the same pnpm as local and Vercel.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-          run_install: false
-
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: /home/runner/.local/share/pnpm/store/v3
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Generate Prisma client
-        run: pnpm prisma generate
-
-      - name: Run migrations
-        run: pnpm prisma migrate deploy
 
       - name: Lint
         run: pnpm lint
@@ -71,60 +50,7 @@ jobs:
       - name: Type-check
         run: pnpm typecheck
 
+      # `pnpm build` runs `prisma generate` before `next build`, so the Prisma
+      # client is generated here rather than in a step of its own.
       - name: Build
         run: pnpm build
-
-  docker:
-    name: Build & Push Docker Image
-    needs: ci
-    runs-on: ubuntu-latest
-    # Only push the Docker image when code is merged/pushed to the main branch
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ vars.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build image for scanning
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          load: true # Load the built image into the local Docker daemon for scanning
-          tags: ghost-ai-local:latest
-          build-args: |
-            DATABASE_URL=postgres://dummy:dummy@localhost:5432/dummy
-          # 1. Docker Build Caching
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Run Trivy vulnerability scanner
-        # 2. Security Vulnerability Scanning
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'ghost-ai-local:latest'
-          format: 'table'
-          # exit-code: '1' would fail the build if issues are found. 
-          # Keeping 0 so it reports issues without breaking your CI just yet.
-          exit-code: '0' 
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Push to Docker Hub
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ vars.DOCKERHUB_USERNAME }}/ghost-ai:latest,${{ vars.DOCKERHUB_USERNAME }}/ghost-ai:${{ github.sha }}
-          build-args: |
-            DATABASE_URL=postgres://dummy:dummy@localhost:5432/dummy
-          cache-from: type=gha

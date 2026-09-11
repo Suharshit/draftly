@@ -672,3 +672,37 @@ Update this file whenever the current phase, active feature, or implementation s
       - Prisma create/update/delete verified against the restored schema: slug ids, client-side `cuid()` generation and
         `@updatedAt` all behave as before; test rows deleted
       - `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed
+- Fixed the production AI design generation break on 2026-09-11:
+    - Symptom: prompting the AI in production returned nothing. Server log showed
+      `TriggerApiError: No matching branch env` (401) from `tasks.trigger`. Local runs were unaffected.
+    - Root cause: `@trigger.dev/core` resolves a preview branch from
+      `previewBranch ?? TRIGGER_PREVIEW_BRANCH ?? VERCEL_GIT_COMMIT_REF` and attaches it as the
+      `x-trigger-branch` header on every request. Vercel always sets `VERCEL_GIT_COMMIT_REF` (`main` on
+      production deploys), so the deployed app sent a branch header that resolved against a preview
+      secret key with no matching branch environment. Locally neither variable is set, so no header is
+      sent and the `tr_dev_` key resolves against the dev environment.
+    - Fix, part 1 (outside the repo): the production `TRIGGER_SECRET_KEY` on Vercel was replaced with a
+      `tr_prod_` key.
+    - Fix, part 2 — `.github/workflows/ci.yml`:
+      - Added a `deploy-trigger` job that runs `pnpm exec trigger deploy` after `ci` passes, gated to
+        pushes on `main` so pull requests never overwrite the prod deployment. Previously nothing in CI
+        deployed tasks at all, so the prod environment had no deployed version of `design-agent`.
+      - The job authenticates with `TRIGGER_ACCESS_TOKEN` (a `tr_pat_` Personal Access Token, which is a
+        different credential from the runtime `TRIGGER_SECRET_KEY`) and must be added as a repo secret.
+      - No `prisma generate` step: nothing under `src/trigger` imports the Prisma client.
+    - Fix, part 3 — `app/api/ai/design/route.ts`:
+      - Wrapped `tasks.trigger` in try/catch. The call was previously unguarded, so any Trigger.dev
+        failure escaped as an unhandled 500 and the sidebar showed only a generic message. Failures now
+        log server-side and return 502.
+    - Fix, part 4 — `hooks/use-design-agent.ts`:
+      - Added a 502 case to `describeRequestFailure` so an unreachable design service reads as such
+        rather than falling through to the generic error. 502 was chosen over 401 deliberately: the
+        hook maps 401 to "your session expired", which would misreport an infrastructure failure.
+    - Validation checks:
+      - `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed
+    - Open items:
+      - `app/api/trigger/hello/route.ts` has the same unguarded `tasks.trigger` call. Left as is — it is
+        a sample route outside this fix's scope.
+      - `.claude/skills/trigger-setup/references/environment-setup.md` documents `TRIGGER_SECRET_KEY` for
+        `trigger deploy` in CI, which is wrong (the CLI requires `TRIGGER_ACCESS_TOKEN`). It is vendored
+        third-party skill content, so it was not edited.

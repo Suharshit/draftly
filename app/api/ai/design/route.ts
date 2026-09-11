@@ -68,10 +68,19 @@ export async function POST(request: Request) {
     return Response.json({ error: "roomId must match projectId" }, { status: 400 });
   }
 
-  const handle = await tasks.trigger<typeof designAgentTask>("design-agent", {
-    prompt: parsedBody.prompt,
-    roomId: parsedBody.roomId,
-  });
+  let handle: Awaited<ReturnType<typeof tasks.trigger<typeof designAgentTask>>>;
+  try {
+    handle = await tasks.trigger<typeof designAgentTask>("design-agent", {
+      prompt: parsedBody.prompt,
+      roomId: parsedBody.roomId,
+    });
+  } catch (error) {
+    // wrong-environment TRIGGER_SECRET_KEY, a branch env that does not exist, or
+    // no deployed version of the task. Surface it as 502 so the client does not
+    // mistake it for an expired session, and log the cause for the server side.
+    console.error("[api/ai/design] failed to trigger design-agent", error);
+    return Response.json({ error: "Design service unavailable" }, { status: 502 });
+  }
 
   await prisma.taskRun.create({
     data: {

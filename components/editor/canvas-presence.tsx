@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useUser, UserButton } from "@clerk/nextjs";
 import { useOthers } from "@liveblocks/react/suspense";
 import { ViewportPortal } from "@xyflow/react";
+import { Bot } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -67,6 +68,37 @@ export function CanvasPresenceOverlay() {
           },
         }}
       />
+    </div>
+  );
+}
+
+/**
+ * Shows that a collaborator has a design generation running in this room,
+ * driven by the `thinking` presence flag the AI sidebar sets.
+ *
+ * Rendered top-center so it stays visible when the AI sidebar is open.
+ */
+export function CanvasThinkingIndicator() {
+  const others = useOthers();
+
+  const thinkingCount = useMemo(() => {
+    return others.filter((other) => other.presence.thinking).length;
+  }, [others]);
+
+  if (thinkingCount === 0) {
+    return null;
+  }
+
+  return (
+    <div className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2">
+      <div className="flex items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)]/90 px-2.5 py-1.5 backdrop-blur-sm">
+        <Bot className="h-4 w-4 animate-pulse text-[var(--accent-primary)]" aria-hidden="true" />
+        <p className="text-xs text-[var(--text-muted)]" aria-live="polite">
+          {thinkingCount === 1
+            ? "A collaborator is generating a design…"
+            : `${thinkingCount} collaborators are generating designs…`}
+        </p>
+      </div>
     </div>
   );
 }

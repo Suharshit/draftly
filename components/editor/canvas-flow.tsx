@@ -19,7 +19,11 @@ import { useUndo, useRedo, useUpdateMyPresence } from "@liveblocks/react";
 
 import { CanvasNodeComponent } from "@/components/editor/canvas-node";
 import { CanvasEdgeComponent, CanvasEdgeMarkerDefs } from "@/components/editor/canvas-edge";
-import { CanvasPresenceOverlay, LiveCursors } from "@/components/editor/canvas-presence";
+import {
+  CanvasPresenceOverlay,
+  CanvasThinkingIndicator,
+  LiveCursors,
+} from "@/components/editor/canvas-presence";
 import { ShapePanel, SHAPE_DRAG_MIME, type ShapeDragPayload } from "@/components/editor/shape-panel";
 import { CanvasControlBar } from "@/components/editor/canvas-control-bar";
 import { StarterTemplatesModal } from "@/components/editor/starter-templates-modal";
@@ -359,6 +363,7 @@ function CanvasFlowInner({
 
       {/* Floating overlays */}
       <CanvasPresenceOverlay />
+      <CanvasThinkingIndicator />
       <CanvasControlBar
         onOpenTemplates={() => setIsTemplatesOpen(true)}
         isSidebarOpen={isSidebarOpen}

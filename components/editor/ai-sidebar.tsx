@@ -1,24 +1,21 @@
 "use client";
 
-import { FormEvent, KeyboardEvent, useMemo, useRef, useState } from "react";
-import { Bot, Download, FileText, Send, X } from "lucide-react";
+import { FormEvent, KeyboardEvent, useMemo, useState } from "react";
+import { Bot, Download, FileText, Loader2, Send, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useDesignAgent } from "@/hooks/use-design-agent";
 import { cn } from "@/lib/utils";
 
 interface AiSidebarProps {
   open: boolean;
   onClose: () => void;
-}
-
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  text: string;
+  /** Room the generated design is written into. Also the project access check. */
+  projectId: string;
 }
 
 const STARTER_PROMPTS = [
@@ -27,27 +24,18 @@ const STARTER_PROMPTS = [
   "Build a CI/CD pipeline",
 ] as const;
 
-export function AiSidebar({ open, onClose }: AiSidebarProps) {
+export function AiSidebar({ open, onClose, projectId }: AiSidebarProps) {
   const [inputValue, setInputValue] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const messageCounterRef = useRef(0);
+  const { messages, statusText, isRunning, sendPrompt } = useDesignAgent(projectId);
 
   const showEmptyState = useMemo(() => messages.length === 0, [messages.length]);
 
   const sendMessage = (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) {
+    if (!text.trim() || isRunning) {
       return;
     }
 
-    const nextMessage: ChatMessage = {
-      id: `user-${messageCounterRef.current}`,
-      role: "user",
-      text: trimmed,
-    };
-    messageCounterRef.current += 1;
-
-    setMessages((prev) => [...prev, nextMessage]);
+    sendPrompt(text);
     setInputValue("");
   };
 
@@ -108,7 +96,8 @@ export function AiSidebar({ open, onClose }: AiSidebarProps) {
                           key={prompt}
                           type="button"
                           onClick={() => sendMessage(prompt)}
-                          className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+                          disabled={isRunning}
+                          className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {prompt}
                         </button>
@@ -117,19 +106,45 @@ export function AiSidebar({ open, onClose }: AiSidebarProps) {
                   </div>
                 ) : null}
 
-                {messages.map((message) => (
-                  <div key={message.id} className={message.role === "user" ? "flex justify-end" : "flex justify-start"}>
+                {messages.map((message) => {
+                  if (message.role === "user") {
+                    return (
+                      <div key={message.id} className="flex justify-end">
+                        <div className="max-w-[85%] rounded-md bg-primary px-3 py-2 text-xs text-primary-foreground">
+                          {message.text}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={message.id} className="flex justify-start">
+                      <div
+                        className={cn(
+                          "max-w-[90%] rounded-md px-3 py-2 text-xs",
+                          message.isError
+                            ? "border border-[var(--state-error)]/40 bg-[var(--state-error)]/10 text-[var(--state-error)]"
+                            : "bg-muted text-foreground",
+                        )}
+                        role={message.isError ? "alert" : undefined}
+                      >
+                        {message.text}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {statusText ? (
+                  <div className="flex justify-start">
                     <div
-                      className={
-                        message.role === "user"
-                          ? "max-w-[85%] rounded-md bg-primary px-3 py-2 text-xs text-primary-foreground"
-                          : "max-w-[90%] rounded-md bg-muted px-3 py-2 text-xs text-foreground"
-                      }
+                      className="flex max-w-[90%] items-center gap-2 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground"
+                      aria-live="polite"
                     >
-                      {message.text}
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      {statusText}
                     </div>
                   </div>
-                ))}
+                ) : null}
               </div>
             </ScrollArea>
 
@@ -139,12 +154,25 @@ export function AiSidebar({ open, onClose }: AiSidebarProps) {
                 value={inputValue}
                 onChange={(event) => setInputValue(event.target.value)}
                 onKeyDown={handleKeyDown}
+                disabled={isRunning}
                 className="max-h-36 min-h-24 resize-none bg-background pr-14 text-xs"
               />
               <div className="mt-2 flex items-center justify-between">
-                <p className="text-[11px] text-muted-foreground">Enter to send, Shift+Enter for a new line</p>
-                <Button type="submit" size="icon" className="h-8 w-8 rounded-full" aria-label="Send message">
-                  <Send className="h-4 w-4" />
+                <p className="text-[11px] text-muted-foreground">
+                  {isRunning ? "Generating your design..." : "Enter to send, Shift+Enter for a new line"}
+                </p>
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
+                  disabled={isRunning || inputValue.trim().length === 0}
+                  aria-label="Send message"
+                >
+                  {isRunning ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
             </form>

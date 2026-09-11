@@ -8,9 +8,65 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Select and implement the next available feature spec unit after `22-design-agent-api.md`.
+- Implement the Specs tab (Generate Spec + download), which remains inert.
 
 ## Completed
+
+- Fix unit `context/fix/01-AI-sidebar-fix.md` completed (AI sidebar wired to the design agent):
+    - Installed `zod` pinned to an exact version (`4.6.2`) for `generateObject`.
+    - Added shared generation contract in `lib/design-generation.ts`:
+      - Zod schema for model output (`designGraphSchema`): nodes (`id`, `label`,
+        `position`, `shape` from `CANVAS_SHAPES`, optional `colorId` from
+        `NODE_COLOR_IDS`) and edges (`id`, `source`, `target`, optional `label`,
+        `arrowDirection` from `EDGE_ARROW_DIRECTIONS`)
+      - `buildCanvasGraph()` maps model output to `CanvasNode` / `CanvasEdge` in
+        code: applies `CANVAS_NODE_TYPE` / `CANVAS_EDGE_TYPE`, sizes from
+        `SHAPE_DEFAULTS`, palette colors from `NODE_COLOR_PALETTE`, re-keys ids
+        under a run-scoped prefix, drops dangling edges, and collapses model
+        position hints onto a non-overlapping grid
+      - Run progress contract shared by task and sidebar
+        (`DESIGN_AGENT_STAGE_KEY`, `DESIGN_AGENT_STAGES`, `parseDesignAgentStage`)
+    - Added value-list exports to `types/canvas.ts` so shapes, arrow directions,
+      and palette ids can be validated at runtime: `CANVAS_SHAPES`,
+      `EDGE_ARROW_DIRECTIONS`, `NODE_COLOR_IDS` / `NodeColorId`,
+      `CanvasArrowDirection` (existing types are now derived from them).
+    - Implemented `src/trigger/design-agent.ts` (task id and payload unchanged):
+      - Calls `generateObject` with `@ai-sdk/google`
+        (`GOOGLE_GENERATIVE_AI_MODEL`, default `gemini-3.5-flash`)
+      - Writes nodes and edges into the Liveblocks room with `mutateFlow` from
+        `@liveblocks/react-flow/node` using `getLiveblocksClient()`; default
+        `storageKey` (matches the client `useLiveblocksFlow`)
+      - Offsets each generation below existing room content
+      - Publishes `stage` / `nodeCount` / `edgeCount` on run metadata and returns
+        `{ nodeCount, edgeCount }`
+    - Added `hooks/use-design-agent.ts`:
+      - `POST /api/ai/design` with `{ prompt, roomId, projectId }`, handling
+        `202` / `400` / `401` / `403` and network failures
+      - Exchanges the run id for a run-scoped token via
+        `POST /api/ai/design/token`, then subscribes with `useRealtimeRun`
+      - Derives everything it shows (status line, closing summary, whether the
+        composer is locked) from the run's own reported state, so a settlement
+        step cannot leave the sidebar stuck mid-run
+      - Renders stage-based status, posts a summary naming the component and
+        connection counts on success, reports failures, and keeps the composer
+        disabled while a run is in flight
+      - Sets the Liveblocks `thinking` presence flag while a run is active
+    - Wired the sidebar and workspace:
+      - `AiSidebar` now takes `projectId` and renders assistant-side messages,
+        a live status line, and error messages
+      - `CanvasWrapper` accepts `children` rendered inside `RoomProvider`, and
+        `EditorWorkspaceShell` nests `AiSidebar` there so it can write presence
+      - Added `CanvasThinkingIndicator` in `components/editor/canvas-presence.tsx`
+        so collaborators see an in-progress generation
+    - Added `GOOGLE_GENERATIVE_AI_MODEL` to `.env.example`
+      (`GOOGLE_GENERATIVE_AI_API_KEY` is set locally, server-only, no
+      `NEXT_PUBLIC_` prefix).
+    - Out of scope and unchanged: the Specs tab, both AI routes, `TaskRun`,
+      `lib/project-access.ts`, `lib/prisma.ts`, the Liveblocks auth route, and
+      the canvas autosave persistence path.
+    - Validation checks:
+      - `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed
+      - `trigger deploy --dry-run` built the task successfully
 
 - Feature spec `22-design-agent-api.md` completed:
     - Added `TaskRun` Prisma model in `prisma/models/task-run.prisma` with:
@@ -597,3 +653,22 @@ Update this file whenever the current phase, active feature, or implementation s
       - Replaced SVG text labels with `foreignObject`-based wrapped label containers for diamond/hexagon/cylinder so long labels stack and clip within node bounds.
       - Updated CSS-shape label style to multiline wrapping with bounded height and hidden overflow instead of single-line ellipsis.
       - Reworked cylinder renderer into a stacked database-style cylinder (top, middle, and bottom elliptical bands).
+- Rolled back the Prisma-to-Supabase data-layer migration on 2026-09-11:
+    - Two migration steps had been implemented and were reverted in full: the snake_case schema rename with database-side
+      defaults, and the addition of the Supabase client (`@supabase/supabase-js`, the `supabase` CLI, `lib/supabase.ts`,
+      `types/database.types.ts`, the Node 20 -> 22 bump, and the `SUPABASE_*` env vars).
+    - Decision: Prisma stays the data layer. The database remains Supabase Postgres — that predates this work and is
+      unchanged. Auth stays Clerk, real-time stays Liveblocks, blob storage stays Vercel Blob, so Supabase is used only
+      as a Postgres host.
+    - The database schema was rolled back to its original shape: `Project`, `ProjectCollaborator`, `TaskRun` with
+      camelCase columns, the `ProjectStatus` enum, no database-side `id` or `updated_at` defaults, and the
+      `moddatetime` trigger and extension removed. All three tables were empty, so no data was involved.
+    - The `20260911120000_snake_case_schema_and_db_defaults` migration was removed from `prisma/migrations` and its row
+      deleted from `_prisma_migrations`; the two original migrations are the full history again.
+    - Also fixed a pre-existing lockfile mismatch on `main`: `pnpm-lock.yaml` recorded `@trigger.dev/react-hooks` as
+      `^4.4.6` while `package.json` pins `4.4.6`, which made `pnpm install --frozen-lockfile` (what CI runs) fail.
+    - Validation checks:
+      - `prisma migrate status` reports 2 migrations and an up-to-date schema; `prisma migrate diff` reports no drift
+      - Prisma create/update/delete verified against the restored schema: slug ids, client-side `cuid()` generation and
+        `@updatedAt` all behave as before; test rows deleted
+      - `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed

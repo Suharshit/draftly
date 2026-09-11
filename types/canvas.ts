@@ -4,14 +4,18 @@ import type { Node, Edge } from "@xyflow/react";
 // Shape catalogue
 // ---------------------------------------------------------------------------
 
+/** All supported draggable shapes, as a value list usable for runtime validation. */
+export const CANVAS_SHAPES = [
+  "rectangle",
+  "circle",
+  "diamond",
+  "pill",
+  "cylinder",
+  "hexagon",
+] as const;
+
 /** All supported draggable shapes. */
-export type CanvasShape =
-  | "rectangle"
-  | "circle"
-  | "diamond"
-  | "pill"
-  | "cylinder"
-  | "hexagon";
+export type CanvasShape = (typeof CANVAS_SHAPES)[number];
 
 /** Default width / height for each shape (pixels). */
 export const SHAPE_DEFAULTS: Record<CanvasShape, { width: number; height: number }> = {
@@ -27,9 +31,24 @@ export const SHAPE_DEFAULTS: Record<CanvasShape, { width: number; height: number
 // Node color palette
 // ---------------------------------------------------------------------------
 
+/** Palette entry ids, as a value list usable for runtime validation. */
+export const NODE_COLOR_IDS = [
+  "default",
+  "blue",
+  "purple",
+  "green",
+  "amber",
+  "red",
+  "teal",
+  "pink",
+] as const;
+
+/** Id of a single entry in `NODE_COLOR_PALETTE`. */
+export type NodeColorId = (typeof NODE_COLOR_IDS)[number];
+
 /** A predefined background + text color pair for canvas nodes. */
 export interface NodeColorPair {
-  id: string;
+  id: NodeColorId;
   label: string;
   /** Node background color (hex). */
   bg: string;
@@ -78,6 +97,12 @@ export interface CanvasNodeData extends Record<string, unknown> {
   shape?: CanvasShape;
 }
 
+/** Supported edge arrowhead directions, as a value list usable for runtime validation. */
+export const EDGE_ARROW_DIRECTIONS = ["none", "forward", "backward", "bidirectional"] as const;
+
+/** Direction of arrowheads rendered on a canvas edge. */
+export type CanvasArrowDirection = (typeof EDGE_ARROW_DIRECTIONS)[number];
+
 /**
  * Data payload carried by every canvas edge.
  */
@@ -93,7 +118,7 @@ export interface CanvasEdgeData extends Record<string, unknown> {
    * 'backward'      — arrowhead at source end only
    * 'bidirectional' — arrowheads at both ends
    */
-  arrowDirection?: "none" | "forward" | "backward" | "bidirectional";
+  arrowDirection?: CanvasArrowDirection;
   /**
    * Custom stroke color (hex). When defined uses pair.text from NODE_COLOR_PALETTE
    * for high visibility. Undefined = default zinc gray.

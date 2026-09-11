@@ -46,13 +46,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The generated client is gitignored, so it does not exist on a fresh
+      # checkout. `pnpm build` generates it too, but build runs last — lint and
+      # typecheck resolve `@/app/generated/prisma/client` and need it first.
+      - name: Generate Prisma client
+        run: pnpm exec prisma generate
+
       - name: Lint
         run: pnpm lint
 
       - name: Type-check
         run: pnpm typecheck
 
-      # `pnpm build` runs `prisma generate` before `next build`, so the Prisma
-      # client is generated here rather than in a step of its own.
       - name: Build
         run: pnpm build

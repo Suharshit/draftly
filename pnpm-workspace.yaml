@@ -1,10 +1,27 @@
 packages:
   - '.'
 
-ignoredBuiltDependencies:
-  - sharp
-  - unrs-resolver
+# pnpm 11 removed `onlyBuiltDependencies` / `ignoredBuiltDependencies` and
+# replaced them with this map, and `strict-dep-builds` now defaults to true:
+# any dependency carrying a build script that is not classified here fails the
+# install outright instead of printing a warning.
+#
+# These values reproduce the behaviour the project already had under pnpm 9 —
+# only @clerk/shared and msw were ever allowed to run scripts. Flip an entry to
+# true if a package turns out to need its native build step.
+allowBuilds:
+  '@clerk/shared': true
+  msw: true
+  '@depot/cli': false
+  '@prisma/engines': false
+  bufferutil: false
+  core-js: false
+  esbuild: false
+  prisma: false
+  protobufjs: false
+  sharp: false
+  unrs-resolver: false
+  utf-8-validate: false
 
-onlyBuiltDependencies:
-  - '@clerk/shared'
-  - msw
+overrides:
+  utf-8-validate: ^6.0.6

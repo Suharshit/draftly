@@ -8,3 +8,6 @@ ignoredBuiltDependencies:
 onlyBuiltDependencies:
   - '@clerk/shared'
   - msw
+
+overrides:
+  utf-8-validate: ^6.0.6

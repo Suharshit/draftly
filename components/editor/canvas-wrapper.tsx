@@ -48,6 +48,12 @@ interface CanvasWrapperProps {
   canAutosave: boolean;
   onSaveStatusChange?: (status: CanvasSaveStatus) => void;
   isSidebarOpen: boolean;
+  /**
+   * Rendered inside the room, next to the canvas. Overlays that need room
+   * presence (such as the AI sidebar) belong here rather than as a sibling of
+   * `CanvasWrapper`, which would place them outside the `RoomProvider`.
+   */
+  children?: ReactNode;
 }
 
 /**
@@ -58,12 +64,14 @@ interface CanvasWrapperProps {
  * - Initial presence includes cursor: null (no active cursor on join)
  * - ClientSideSuspense defers rendering until the room is ready
  * - CanvasErrorBoundary catches Liveblocks connection failures
+ * - `children` render inside the room so they can read and write presence
  */
 export function CanvasWrapper({
   roomId,
   canAutosave,
   onSaveStatusChange,
   isSidebarOpen,
+  children,
 }: CanvasWrapperProps) {
   return (
     <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
@@ -87,6 +95,7 @@ export function CanvasWrapper({
             />
           </ClientSideSuspense>
         </CanvasErrorBoundary>
+        {children}
       </RoomProvider>
     </LiveblocksProvider>
   );

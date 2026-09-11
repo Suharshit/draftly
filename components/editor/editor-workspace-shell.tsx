@@ -112,8 +112,13 @@ export function EditorWorkspaceShell({
             canAutosave={isOwner}
             onSaveStatusChange={setSaveStatus}
             isSidebarOpen={isSidebarOpen}
-          />
-          <AiSidebar open={isAiSidebarOpen} onClose={() => setIsAiSidebarOpen(false)} />
+          >
+            <AiSidebar
+              open={isAiSidebarOpen}
+              onClose={() => setIsAiSidebarOpen(false)}
+              projectId={projectId}
+            />
+          </CanvasWrapper>
         </section>
       </main>
 

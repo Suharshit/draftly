@@ -597,3 +597,52 @@ Update this file whenever the current phase, active feature, or implementation s
       - Replaced SVG text labels with `foreignObject`-based wrapped label containers for diamond/hexagon/cylinder so long labels stack and clip within node bounds.
       - Updated CSS-shape label style to multiline wrapping with bounded height and hidden overflow instead of single-line ellipsis.
       - Reworked cylinder renderer into a stacked database-style cylinder (top, middle, and bottom elliptical bands).
+- Configured local development against Supabase Postgres on 2026-09-11:
+    - Provisioned Supabase project `draftly` (ref `ffwgjnvchkfvysbcmmfx`, region `ap-south-1`) as the local development database.
+      Backend scope is database-only: Prisma remains the data layer, Clerk remains auth, Liveblocks remains real-time.
+    - Added `.env.local` (gitignored) holding `DATABASE_URL` (Supabase session pooler, port 5432), Clerk, Liveblocks,
+      Vercel Blob, and Trigger.dev credentials.
+    - Updated `prisma.config.ts`:
+      - Replaced `import "dotenv/config"` with `config({ path: [".env.local", ".env"] })` so the Prisma CLI picks up
+        `.env.local`. Next.js loads `.env.local` on its own; the Prisma CLI does not, so migrations previously ran
+        without a `DATABASE_URL`.
+    - Applied both existing migrations to Supabase with `prisma migrate deploy`
+      (`20260503143051_init_project_models`, `20260523085718_add_task_run_model`).
+    - Validation checks:
+      - `pnpm typecheck` passed
+      - `prisma migrate deploy` applied 2/2 migrations; `Project`, `ProjectCollaborator`, `TaskRun` confirmed in Supabase
+      - `pnpm dev` serves `/sign-in` (200) and redirects `/` to Clerk sign-in (307)
+      - Prisma client verified connecting to Supabase at runtime
+    - Open item: Row Level Security is disabled on all public tables in the Supabase project. This is consistent with
+      access being enforced in application code via Clerk + `lib/project-access.ts` (the Supabase anon key is never
+      used by this app), but RLS should be enabled before any Supabase client library is introduced.
+- Prepared the database schema for the Prisma-to-Supabase migration (step 1 of `context/feature-specs/fixes/23-fix-schema.md`) on 2026-09-11:
+    - Prisma remains the data layer. No application code changed; Prisma field names are unchanged and only the
+      physical database names moved to snake_case via `@map`/`@@map`.
+    - Updated `prisma/models/project.prisma` and `prisma/models/task-run.prisma`:
+      - Mapped `Project` -> `projects`, `ProjectCollaborator` -> `project_collaborators`, `TaskRun` -> `task_runs`,
+        and the `ProjectStatus` enum -> `project_status` (values `DRAFT`/`ARCHIVED` unchanged).
+      - Mapped every camelCase column to snake_case (`owner_id`, `canvas_json_path`, `created_at`, `updated_at`,
+        `project_id`, `collaborator_email`, `run_id`, `user_id`).
+      - Replaced `@default(cuid())` on all three `id` fields with
+        `@default(dbgenerated("(gen_random_uuid())::text"))` so the default lives in the database. `id` stays `TEXT`:
+        project ids are client-generated slugs (`<slug>-<6 chars>`) that double as the Liveblocks room id, so a `uuid`
+        column would break project creation. The parenthesized form is how Postgres normalizes the expression; writing
+        it unparenthesized leaves `prisma migrate diff` reporting permanent cosmetic drift.
+      - Added `@default(now())` to `Project.updatedAt` alongside `@updatedAt` so inserts outside Prisma are covered.
+    - Added `prisma/migrations/20260911120000_snake_case_schema_and_db_defaults/migration.sql`, authored by hand
+      (`prisma migrate dev` needs a shadow database, which Supabase's pooled connection does not allow, and there is no
+      local Postgres or Docker). It uses `ALTER ... RENAME` rather than drop-and-recreate so it stays replayable against
+      an environment that has rows: renames the enum, the three tables, every column, the primary keys, indexes, the
+      unique constraint and the foreign key; sets the `id` and `projects.updated_at` defaults; and installs a
+      `moddatetime` `handle_updated_at` trigger on `public.projects`.
+    - Validation checks:
+      - `prisma migrate deploy` applied the migration cleanly; `prisma migrate status` reports the schema up to date
+      - `prisma migrate diff --from-config-datasource --to-schema prisma/` reports an empty migration (no drift)
+      - Supabase shows `projects`, `project_collaborators`, `task_runs`; no PascalCase tables remain
+      - Inserting a `projects` row with no `id` and no `updated_at` returned both populated; a subsequent update
+        advanced `updated_at` without Prisma setting it; an insert with a slug id (`payment-system-k3f9x2`) succeeded.
+        All test rows were deleted.
+      - `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed
+    - Still open: Row Level Security remains disabled on all public tables. Out of scope for this step, but it must be
+      enabled with policies before any Supabase client library is introduced.

@@ -1,31 +1,35 @@
 enum ProjectStatus {
   DRAFT
   ARCHIVED
+
+  @@map("project_status")
 }
 
 model Project {
-  id              String                @id @default(cuid())
-  ownerId         String
+  id              String                @id @default(dbgenerated("(gen_random_uuid())::text"))
+  ownerId         String                @map("owner_id")
   name            String
   description     String?
   status          ProjectStatus         @default(DRAFT)
-  canvasJsonPath  String?
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  canvasJsonPath  String?               @map("canvas_json_path")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @default(now()) @updatedAt @map("updated_at")
   collaborators   ProjectCollaborator[]
 
   @@index([ownerId])
   @@index([createdAt])
+  @@map("projects")
 }
 
 model ProjectCollaborator {
-  id                 String   @id @default(cuid())
-  projectId          String
-  collaboratorEmail  String
-  createdAt          DateTime @default(now())
+  id                 String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  projectId          String   @map("project_id")
+  collaboratorEmail  String   @map("collaborator_email")
+  createdAt          DateTime @default(now()) @map("created_at")
   project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, collaboratorEmail])
   @@index([collaboratorEmail])
   @@index([projectId, createdAt])
+  @@map("project_collaborators")
 }

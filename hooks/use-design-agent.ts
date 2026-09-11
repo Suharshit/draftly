@@ -53,6 +53,8 @@ function describeRequestFailure(status: number): string {
       return "Your session expired. Sign in again to keep designing.";
     case 403:
       return "You do not have access to this project, so the design was not generated.";
+    case 502:
+      return "The design service is unreachable right now, so nothing was generated. Try again shortly.";
     default:
       return GENERIC_ERROR;
   }

@@ -60,3 +60,40 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  deploy-trigger:
+    name: Deploy Trigger.dev tasks
+    # Only a merge into main ships tasks. Pull requests stop at the `ci` job so a
+    # branch never overwrites the prod deployment.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: ci
+    runs-on: ubuntu-latest
+
+    env:
+      # `trigger deploy` authenticates with a Personal Access Token (tr_pat_...),
+      # NOT the TRIGGER_SECRET_KEY the app uses at runtime. Generate one at
+      # https://cloud.trigger.dev/account/tokens and store it as a repo secret.
+      TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # No `prisma generate` here: nothing under `src/trigger` imports the Prisma
+      # client, so the deploy bundle never resolves `@/app/generated/prisma`.
+      # Secrets the tasks need at runtime (GOOGLE_GENERATIVE_AI_API_KEY,
+      # LIVEBLOCKS_SECRET_KEY) are set in the Trigger.dev dashboard, not here.
+      - name: Deploy tasks
+        run: pnpm exec trigger deploy

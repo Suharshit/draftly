@@ -35,10 +35,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
+      # pnpm 11.1.2 loads `node:sqlite`, so it needs Node >= 22.13. Keep this in
+      # step with package.json#engines.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies

@@ -416,6 +416,18 @@ Update this file whenever the current phase, active feature, or implementation s
     - Updated `app/editor/[projectId]/page.tsx`:
       - Passes project `isOwner` into workspace shell for autosave coordination.
 
+- Added three route shells (structure only, no feature logic):
+    - `app/(app)/dashboard/page.tsx` -> `/dashboard`: authenticated landing, placeholder for the
+      future project management area.
+    - `app/(marketing)/landing/page.tsx` -> `/landing`: public marketing landing page.
+    - `app/(marketing)/docs/page.tsx` -> `/docs`: public (non-private) docs page.
+    - All three are server components with placeholder markup only. No auth checks, no route
+      protection, and no navigation wiring were added; `app/page.tsx` still redirects signed-in
+      users to `/editor` and everyone else to `/sign-in`.
+    - Route groups `(app)` and `(marketing)` carry no layout files yet, so they do not affect URLs.
+    - Validation checks: `pnpm typecheck` and `pnpm lint` passed.
+
+
 ## Next Up
 
 - Select and implement the next available feature spec unit after `22-design-agent-api.md`.

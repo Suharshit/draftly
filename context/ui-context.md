@@ -4,8 +4,8 @@
 
 Two separate visual systems live in this app and must not be mixed:
 
-1. **Product (app, editor, auth)** — the dark technical workspace documented below.
-2. **Marketing (`app/(marketing)`)** — the Lab-site brand & craft system v1 defined in
+1. **Product (app, editor)** — the dark technical workspace documented below.
+2. **Marketing (`app/(marketing)`) and auth (`app/(auth)`)** — the Lab-site brand & craft system v1 defined in
    `app/globals.css` (Sept 2026). Marketing surfaces use **only** the brand tokens
    (`--mat-green`, `--paper-cream`, `--ink`, paper accents, `--font-brand-*`, the
    `--text-*` brand scale, `--shadow-flat` / `--shadow-lifted`, `--space-*`). They must
@@ -15,7 +15,10 @@ Two separate visual systems live in this app and must not be mixed:
 
 Marketing components live in `components/ui/marketing/` and are exported from its
 barrel: `MarketingNavbar`, `MarketingButton`, `HandwrittenNote`,
-`HandwrittenAnnotation`, `PinnedPhoto`, `CanvasMockup`. The brand spec's rules are the
+`HandwrittenAnnotation`, `PinnedPhoto`, `CanvasMockup`, `PaperSection`, `AuthorPhoto`,
+`SkillPill`, `DraftlyWordmark` (the two-face text lockup), `MatGrid` (the cutting-mat
+grid overlay). The auth layout sits on the mat with the wordmark and mini-canvas; the
+Clerk components inside it are not yet restyled to paper. The brand spec's rules are the
 contract: hard offset shadows only (no blur-only, no glass), corner radius capped at
 2px (`rounded-paper`), one green plus one cream ground, object rotation inside ±8deg,
 handwriting (Caveat) reserved for the human voice, mono (JetBrains Mono) reserved for

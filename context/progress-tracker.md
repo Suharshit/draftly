@@ -837,3 +837,17 @@ Update this file whenever the current phase, active feature, or implementation s
     - Validation checks:
       - `tsc --noEmit` and `eslint` passed; `/landing` renders 200 with the split lockup in the markup and
         the icons resolving as `icon.png` 512x512 and `apple-icon.png` 180x180
+- Moved the auth layout onto the craft mat (2026-09-13, `app/(auth)/layout.tsx`):
+    - The dark product split panel (Ghost icon, gradient, feature cards) was replaced with a full-bleed
+      `bg-mat-green` ground and grid. The left column holds a large cream `DraftlyWordmark` with a small
+      push-pin, the tagline "Draw the system, argue on the canvas, leave with a decision.", a mono chrome
+      line, and a `CanvasMockup` ("payments · v3" / "retry here?") pinned to the bottom on `lg+`. The right
+      column is a centred 520px slot for the Clerk `SignIn` / `SignUp` children, which are unchanged.
+    - Shared pieces extracted into `components/ui/marketing/`: `DraftlyWordmark` (the navbar's centre
+      lockup, now used by `MarketingNavbar` too) and `MatGrid` (the mat grid overlay, now used by
+      `/landing` too). `CanvasMockup` gained optional `caption` and `annotation` props, defaulting to the
+      landing copy.
+    - `ui-context.md` now lists auth under the craft system rather than the product surface.
+    - Open items:
+      - The Clerk card itself still uses the dark product appearance from `app/layout.tsx`; the paper sheet
+        (pin, rotation, GitHub/Google buttons, ink Continue button) is the next step.

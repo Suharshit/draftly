@@ -1,3 +1,8 @@
+/* NEW — Lab-site brand fonts (Google Fonts CDN).
+   Swap for next/font/google in layout.tsx when you're ready — it avoids
+   the render-blocking request and lets you drop this @import line. */
+@import url('https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,500;0,600;0,700&family=Instrument+Serif:ital@0;1&family=Caveat:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -8,9 +13,11 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+    /* ============================================================
+       PAST — original Tailwind theme mappings (unchanged)
+       ============================================================ */
     --font-heading: var(--font-geist-sans);
     --font-sans: var(--font-geist-sans);
-    --font-mono: var(--font-geist-mono);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,9 +56,56 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+
+    /* ============================================================
+       NEW — Lab-site brand & craft system v1 (Sept 2026)
+       Tailwind utility mappings. These read from the raw brand
+       tokens defined in :root below and unlock utility classes:
+       bg-mat-green, text-ink, font-brand, font-serif, font-hand,
+       shadow-flat, shadow-lifted, rounded-paper, etc.
+       ============================================================ */
+    --color-mat-green: var(--mat-green);
+    --color-mat-deep: var(--mat-deep);
+    --color-mat-worn: var(--mat-worn);
+    --color-paper-cream: var(--paper-cream);
+    --color-paper-cream-rule: var(--paper-cream-rule);
+    --color-paper-bright: var(--paper-bright);
+    --color-ink: var(--ink);
+    --color-ink-soft: var(--ink-soft);
+    --color-paper-accent-marker-amber: var(--paper-accent-marker-amber);
+    --color-paper-accent-scrap-coral: var(--paper-accent-scrap-coral);
+    --color-paper-accent-cut-sage: var(--paper-accent-cut-sage);
+    --color-paper-accent-draft-blue: var(--paper-accent-draft-blue);
+    --color-paper-pin-red: var(--paper-pin-red);
+
+    /* Primary/Structure (Archivo) is opt-in via font-brand so it never
+       silently changes the existing font-sans (Geist) behavior above.
+       font-serif and font-mono were unset before this, so mapping them
+       here is additive, not a change to prior behavior. */
+    --font-brand: var(--font-brand-primary);
+    --font-serif: var(--font-brand-display);
+    --font-hand: var(--font-brand-hand);
+    --font-mono: var(--font-brand-mono);
+
+    --text-hero-1: var(--text-hero-1);
+    --text-hero-2: var(--text-hero-2);
+    --text-sub: var(--text-sub);
+    --text-section-title: var(--text-section-title);
+    --text-chrome: var(--text-chrome);
+
+    --tracking-hero: var(--tracking-hero);
+    --tracking-brand-tight: var(--tracking-brand-tight);
+    --tracking-chrome: var(--tracking-chrome);
+
+    --shadow-flat: var(--shadow-flat);
+    --shadow-lifted: var(--shadow-lifted);
+    --radius-paper: var(--corner-radius-paper-max);
 }
 
 :root {
+    /* ============================================================
+       PAST — original design tokens (unchanged)
+       ============================================================ */
     --bg-base: #09090b;
     --bg-surface: #18181b;
     --text-primary: #fafafa;
@@ -93,7 +147,125 @@
     --sidebar-accent-foreground: var(--text-primary);
     --sidebar-border: var(--border-default);
     --sidebar-ring: var(--accent-primary);
+
+    /* ============================================================
+       NEW — Lab-site brand & craft system v1 (Sept 2026)
+       "decide once, then build" — two surfaces only: craft mat
+       and notebook paper. Source: Lab-site Brand Spec.
+       ============================================================ */
+
+    /* --- Grounds & ink --- */
+    --mat-green: #3A5040;          /* oklch(.40 .035 152) — hero ground, the only dark surface */
+    --mat-deep: #2E4034;           /* oklch(.33 .033 152) — vignette, mat edge, wear patches */
+    --mat-worn: #465D4B;           /* oklch(.45 .032 152) — blade-scuff blooms, 4–8% opacity, never a gradient */
+    --paper-cream: #F6F1E4;        /* oklch(.95 .017 90) — about ground + every paper object */
+    --paper-cream-rule: #DED6C2;   /* 22px rule rhythm on paper-cream */
+    --paper-bright: #FFFDF6;       /* oklch(.99 .008 95) — mini-canvas, photo border, floating nav card */
+    --ink: #26241F;                /* oklch(.24 .008 85) — all type, hairlines, CTA fill (13.5:1 on cream) */
+    --ink-soft: #5B574E;           /* secondary ink */
+
+    /* --- Paper accents — equal lightness & chroma, hue only varies.
+       Backgrounds for ink only — never a type color. No accent ever
+       touches mat-green except as a paper object with border + shadow. --- */
+    --paper-accent-marker-amber: #EBD494;  /* h85 — sticky notes, tape */
+    --paper-accent-scrap-coral: #F0B4A6;   /* h32 — skill strips, labels */
+    --paper-accent-cut-sage: #BCD3B4;      /* h148 — stickers on paper only */
+    --paper-accent-draft-blue: #BCC6E6;    /* h268 — mini-canvas selection, arrows */
+
+    /* --- Signal — max ~1% of any screen --- */
+    --paper-pin-red: #C0473A;      /* push-pins, live links, one underline */
+
+    /* --- Typography: raw font stacks --- */
+    --font-brand-primary: "Archivo", sans-serif;         /* structure: headline 1, nav, buttons, body, skill labels. Tracking -.025em above 32px */
+    --font-brand-display: "Instrument Serif", serif;     /* expression: headline 2, "what's up" label. Italic default, never <24px, never UI */
+    --font-brand-hand: "Caveat", cursive;                 /* accent: annotations, captions, section titles, contact links. 18–34px only, max 6 items/section */
+    --font-brand-mono: "JetBrains Mono", monospace;       /* measure: ruler coords, canvas chrome. 10–12px, uppercase, .08–.14em tracking, max 40% opacity on mat */
+
+    /* --- Type scale, desktop → mobile via clamp (fixed sizes noted where the spec has no fluid formula) --- */
+    --text-hero-1: clamp(2.875rem, 7.4vw, 6.5rem);      /* 46–104px / 700 / Archivo, tracking -.03em */
+    --text-hero-2: clamp(2.625rem, 6.8vw, 6rem);        /* 42–96px / italic / Instrument Serif */
+    --text-sub: clamp(0.9375rem, 1.3vw, 1.125rem);      /* 15–18px / 400 / Archivo, one sentence, 46ch max */
+    --text-section-title: clamp(1.875rem, 3.4vw, 2.75rem); /* 30–44px / Caveat 600 */
+    --text-body: 1rem;             /* 16px / Archivo 400 / line-height 1.65 / 62ch max */
+    --text-ui-label: 0.875rem;     /* 14px / Archivo 600 — nav, CTA, skill strips */
+    --text-chrome: 0.6875rem;      /* 11px / JetBrains Mono — coordinates, canvas captions */
+    --text-annotation-min: 1.125rem; /* 18px, Caveat 400 — margin notes, photo captions */
+    --text-annotation-max: 1.625rem; /* 26px ceiling for annotation copy */
+
+    --tracking-hero: -0.03em;         /* hero line 1 */
+    --tracking-brand-tight: -0.025em; /* Archivo above 32px */
+    --tracking-chrome: 0.1em;         /* JetBrains Mono chrome */
+
+    /* --- Space scale — mat grid multiples --- */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 20px;
+    --space-5: 32px;
+    --space-6: 52px;
+    --space-7: 84px;
+
+    /* --- Layout --- */
+    --content-max: 1160px;
+    --text-col-max: 640px;
+    --hero-height: 68vh;
+    --hero-height-min: 560px;
+    --bp-sm: 640px;
+    --bp-md: 960px;
+    --bp-lg: 1280px;
+
+    /* --- Surfaces --- */
+    --mat-grid-minor: 32px;        /* white lines @ 9% opacity */
+    --mat-grid-major: 128px;       /* white lines @ 16% opacity */
+    --mat-noise-opacity: 0.04;     /* plus 2–3 soft scuff blooms; grid fixed to page, never parallaxed */
+    --paper-rule-spacing: 22px;    /* notebook paper rule; one coral margin line, 3% grain; fades to 0 at section edges */
+
+    /* --- Shadow & lift — hard offsets only, never a blur-only shadow --- */
+    --shadow-flat: 3px 4px 0 rgba(14, 22, 16, 0.3);
+    --shadow-lifted: 0 12px 22px -12px rgba(14, 22, 16, 0.3), 3px 4px 0 rgba(14, 22, 16, 0.3);
+
+    /* --- Object physics --- */
+    --rotation-min: -6deg;
+    --rotation-max: 6deg;
+    --rotation-hard-limit: 8deg;       /* never past this in either direction */
+    --rotation-neighbor-min-diff: 2deg;
+    --corner-radius-paper: 0px;        /* photo border, pins */
+    --corner-radius-paper-max: 2px;    /* cut, never rounded past this */
+    --edge-ink-opacity-min: 0.2;
+    --edge-ink-opacity-max: 0.3;
+
+    /* --- Motion --- */
+    --ease-hover: cubic-bezier(.2, .8, .25, 1);
+    --duration-hover: 240ms;   /* hover lift: translate ≤4px, rotate ≤1.5deg */
+    --duration-press: 90ms;    /* CTA press: translate 2px, shadow to 1px */
+    --hover-lift-translate: 4px;
+    --hover-lift-rotate: 1.5deg;
+    --press-translate: 2px;
+    --parallax-max: 8px;       /* total, objects only */
 }
+
+/* ============================================================
+   NEW — spec notes (not single CSS values, keep as source of truth)
+   ------------------------------------------------------------
+   Object count budget: hero ≤7 craft objects desktop / ≤3 mobile.
+   About section ≤5. Everything else is type.
+   Placement: craft objects live outside the 640px centre column so
+   the headline never competes.
+   Mini-canvas: Paper Bright ground, 2–3 ink cards, Draft Blue
+   connectors, one Amber sticky, one Caveat label. Always tilted
+   -2deg. Always the largest object on the mat.
+   Contrast: ink/cream 13.5:1 · cream/mat 9.8:1 · ink/accent ≥8:1.
+   Mono chrome on mat may drop to 40% opacity — decorative only,
+   never information. Tap targets ≥44px; decorative objects
+   aria-hidden.
+   Always: flat ink type on paper, hard offset shadows, cut edges,
+   one green + one cream, handwriting reserved for the human voice,
+   mini-canvas reads as an object not a screenshot.
+   Never: gradients on the mat, blur/glass, radii above 2px, a third
+   ground color, accent-colored text, emoji, illustrated characters,
+   more than two hand-drawn doodles per section, scroll-triggered
+   reveals.
+   ============================================================ */
 
 @layer base {
   * {

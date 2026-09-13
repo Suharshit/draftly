@@ -44,3 +44,5 @@ next-env.d.ts
 /app/generated/prisma
 
 .trigger
+
+context/things-to-rember.md

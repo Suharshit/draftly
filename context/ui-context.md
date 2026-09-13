@@ -1,6 +1,27 @@
 # UI Context
 
-## Theme
+## Surfaces
+
+Two separate visual systems live in this app and must not be mixed:
+
+1. **Product (app, editor, auth)** — the dark technical workspace documented below.
+2. **Marketing (`app/(marketing)`)** — the Lab-site brand & craft system v1 defined in
+   `app/globals.css` (Sept 2026). Marketing surfaces use **only** the brand tokens
+   (`--mat-green`, `--paper-cream`, `--ink`, paper accents, `--font-brand-*`, the
+   `--text-*` brand scale, `--shadow-flat` / `--shadow-lifted`, `--space-*`). They must
+   not use the product tokens (`--bg-base`, `--accent-primary`, `--border-default`, …)
+   or `components/ui/button.tsx` and the other shadcn primitives, which are themed for
+   the product surface.
+
+Marketing components live in `components/ui/marketing/` and are exported from its
+barrel: `MarketingNavbar`, `MarketingButton`, `HandwrittenNote`,
+`HandwrittenAnnotation`, `PinnedPhoto`, `CanvasMockup`. The brand spec's rules are the
+contract: hard offset shadows only (no blur-only, no glass), corner radius capped at
+2px (`rounded-paper`), one green plus one cream ground, object rotation inside ±8deg,
+handwriting (Caveat) reserved for the human voice, mono (JetBrains Mono) reserved for
+decorative chrome, and decorative craft objects marked `aria-hidden`.
+
+## Theme (product surface)
 
 Dark only. No light mode. The design language is a dark technical workspace — near-black backgrounds, layered surfaces, and vivid accent colors for interactive elements. High contrast interfaces with professional, system-level visual hierarchy.
 

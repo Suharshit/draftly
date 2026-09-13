@@ -718,3 +718,87 @@ Update this file whenever the current phase, active feature, or implementation s
       - `.claude/skills/trigger-setup/references/environment-setup.md` documents `TRIGGER_SECRET_KEY` for
         `trigger deploy` in CI, which is wrong (the CLI requires `TRIGGER_ACCESS_TOKEN`). It is vendored
         third-party skill content, so it was not edited.
+- Built the non-auth marketing landing page on the Lab-site brand system (2026-09-12):
+    - New `components/ui/marketing/` module, barrelled through `index.ts`. These components use only the
+      brand tokens from `app/globals.css` — none of the product (dark zinc) tokens or the shadcn
+      primitives in `components/ui/`, which stay themed for the app surface.
+      - `marketing-navbar.tsx` (client) — floating Paper Bright card: Base UI `Menu` trigger on the left
+        with Docs (`/docs`) and Login (`/sign-in`) link items, "Draftly" wordmark centred in Archivo, and
+        a mono chrome "About" link on the right. Base UI was used rather than a hand-rolled popover so
+        focus management and dismissal come for free.
+      - `handwritten-note.tsx` — `HandwrittenNote` (cva variants over the four paper accents) and
+        `HandwrittenAnnotation` (Caveat straight on the mat, no paper). Both clamp rotation to the ±8deg
+        hard limit from the brand spec and are `aria-hidden`.
+      - `pinned-photo.tsx` — hatched paper plate under a single Paper Pin Red push-pin.
+      - `marketing-button.tsx` — `MarketingButton`, always a link (the landing page has no in-place
+        actions). `solid` is the ink slab CTA with the spec's press physics; `quiet` is the mono
+        secondary action with the one allowed pin-red underline.
+      - `canvas-mockup.tsx` — mini-canvas as a paper object: fixed 460×260 coordinate space so the SVG
+        Draft Blue connectors stay aligned to the percentage-positioned ink cards at any width; tilted
+        -2deg, one amber sticky, one Caveat label.
+    - `app/(marketing)/landing/page.tsx` composes them over a mat-green ground with the 32px/128px
+      cutting-mat grid, hero (Archivo line 1 + Instrument Serif italic line 2), CTA pair, mini-canvas,
+      and the mono ruler chrome footer. Craft objects sit outside the 640px centre column and are hidden
+      below `md`/`lg` to respect the ≤3-object mobile budget.
+    - `context/ui-context.md` gained a "Surfaces" section: the product and marketing systems are now
+      documented as separate and non-mixable.
+    - Validation checks:
+      - `pnpm typecheck` and `pnpm lint` passed
+      - `/landing` renders 200 on the dev server; the compiled Tailwind chunk was inspected to confirm
+        the brand utilities (`text-hero-1`, `tracking-hero`, `shadow-flat`, `rounded-paper`, the paper
+        accent colors) resolve to the `:root` brand values rather than the `@theme inline` placeholders
+    - Open items:
+      - The `#about` nav target does not exist yet — the landing page is hero-only so far.
+      - Fonts still load via the `@import` CDN line at the top of `globals.css`; moving them to
+        `next/font/google` in `app/layout.tsx` is still pending, as that file notes.
+- Added the about-section groundwork to `components/ui/marketing/` (2026-09-12, not assembled into a page yet):
+    - `rotation.ts` — `clampRotation`, the ±8deg object-physics limit, extracted out of
+      `handwritten-note.tsx` and `pinned-photo.tsx`, which had duplicated it.
+    - `paper-section.tsx` — `PaperSection`, the notebook-paper ground: 22px rule rhythm masked to fade at
+      the sheet's top and bottom edges, one coral margin line, 3% SVG grain. The mat-to-paper hand-off is
+      a cut edge (hairline plus a hard offset shadow cast upward), not a gradient — the dashed rule at the
+      foot of the hero is ruler chrome on the mat and is not the seam.
+    - `author-photo.tsx` — `AuthorPhoto`, the "that's me" plate. Held by a strip of marker-amber tape
+      rather than a push-pin, because it sits on paper; Paper Pin Red stays reserved for the mat. Renders
+      a hatched placeholder until a `src` is passed, then `next/image`.
+    - `skill-pill.tsx` — `SkillPill`, a hand-cut accent strip. Renders `<li>`, so the assembled section
+      needs a `<ul>`; accents are ink backgrounds only, never the label color.
+    - Validation checks:
+      - `pnpm typecheck` and `pnpm lint` passed; `/landing` still renders 200
+    - Open items:
+      - Nothing consumes these yet — the about section itself has not been laid out.
+- Assembled the about section onto `/landing` over the paper ground (2026-09-12):
+    - `app/(marketing)/landing/page.tsx` restructured into two stacked grounds: `<main>` now carries the
+      paper-cream base, the hero lives in its own `overflow-hidden` mat section above it, and
+      `PaperSection id="about"` follows. `#about` in the navbar now resolves.
+    - The seam is a cut edge owned by the mat, not the sheet: the mat section sits at `z-10` and casts
+      `0 5px 0` of hard offset shadow down onto the paper, with the sheet contributing only its top
+      hairline. `paper-section.tsx` lost the upward shadow it had been given — against a dark mat it was
+      invisible and it implied the wrong stacking order.
+    - About content: Caveat section title, the Instrument Serif "what's up" label on a Paper Bright chip,
+      a two-sentence intro, `AuthorPhoto` on the right, five `SkillPill` strips in a `<ul>`, and three
+      Caveat contact links whose underline turns Paper Pin Red on hover. One red dot is the section's
+      only signal.
+    - Fixed a stray `]` in the hero footer's `gap-(--space-1)]` class.
+    - Validation checks:
+      - `pnpm typecheck` and `pnpm lint` passed; `/landing` renders 200 with the about markup present and
+        no errors in the dev log
+    - Open items:
+      - About copy, the GitHub/Email hrefs, and the author photo are placeholders — `AuthorPhoto` renders
+        its hatched plate until a real `src` is passed.
+- Reworked the hero/about seam so the mini-canvas bridges both grounds (2026-09-12, `page.tsx` only):
+    - The mini-canvas moved out of the hero flow and into the top of the about section, pulled up with a
+      negative margin (`-mt-[60px]`, `md:-mt-[170px]`) so its upper half sits on the mat and the about
+      content begins exactly where it ends.
+    - Stacking flipped for the overlap: `PaperSection` is passed `z-20` (over the mat's `z-10`) so the
+      overflowing canvas paints above the mat. The mat's `0 5px 0` seam shadow was removed — with the
+      sheet now on top it could not be seen, and the wireframe's seam is the dashed rule instead.
+    - One dashed line on the page: `PaperSection` is passed `border-dashed border-ink/30`, which
+      tailwind-merge resolves against its own `border-t border-ink/25`. The hero footer lost its own
+      dashed rule and keeps only the mono coords and the ruler squares, now at `--space-7` so the
+      straddling canvas clears them.
+    - The hero's "tiny live canvas" annotation went with the canvas; the seam carries "bridges both
+      worlds" in ink-soft on the paper side, matching the wireframe.
+    - Validation checks:
+      - `pnpm typecheck` and `pnpm lint` passed; `/landing` renders 200 and the about section's merged
+        class list confirms the single dashed seam

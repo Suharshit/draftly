@@ -851,3 +851,69 @@ Update this file whenever the current phase, active feature, or implementation s
     - Open items:
       - The Clerk card itself still uses the dark product appearance from `app/layout.tsx`; the paper sheet
         (pin, rotation, GitHub/Google buttons, ink Continue button) is the next step.
+- Replaced Clerk's prebuilt `<SignIn />` with a custom paper sign-in card (2026-09-13):
+    - `components/auth/sign-in-card.tsx` (client) runs on the Core 3 `useSignIn()` API (`@clerk/nextjs` 7.3.0),
+      so Clerk still owns sessions, verification and bot protection. Flow: email → `signIn.create` → password
+      step when the account has a password factor, otherwise `emailCode.sendCode` → code step; then
+      `needs_client_trust` / `needs_second_factor` are routed to an email/phone code or TOTP step; `complete`
+      calls `finalize` with `decorateUrl` for Safari ITP. GitHub/Google go through `signIn.sso` to
+      `/sign-in/sso-callback`, which renders `AuthenticateWithRedirectCallback` plus a `#clerk-captcha` mount
+      for SSO transfers into sign-up.
+    - `redirect_url` is read on the server in `sign-in/[[...sign-in]]/page.tsx` and only honoured when it
+      resolves to the same origin; otherwise the fallback is `/`, which sends signed-in users to `/editor`.
+    - Visuals follow the wireframe: pinned `paper-bright` sheet tilted 1deg, ink-bordered SSO buttons with mono
+      GitHub/Google marks, amber "Last used" tag from `client.lastAuthenticationStrategy`, dashed OR rule, cream
+      input, the solid `marketingButtonVariants` Continue slab, pin-red Sign up link, and a mono footer that shows
+      "Development mode" only for `pk_test_` keys.
+    - Validation checks:
+      - `pnpm typecheck` and `eslint` passed; `/sign-in?redirect_url=/dashboard` and `/sign-in/sso-callback` render 200
+    - Open items:
+      - Not yet exercised end-to-end in a browser (email code, password, GitHub, Google).
+      - Forgot-password and session tasks (e.g. forced org selection) are not handled by the custom card.
+      - Sign-up still uses the prebuilt dark `<SignUp />`.
+- Fixed the sign-in card rendering with no padding, margins or sizing (2026-09-13, `app/globals.css`):
+    - Cause: none of the card's spacing/size utilities (`pt-(--space-6)`, `min-h-14`, `min-h-16`, the heading clamp)
+      were in the served CSS, although a fresh Tailwind compile of `globals.css` produced all of them. Classes from
+      existing files (auth layout, marketing navbar) were present; only the new `components/auth/` folder was missing.
+      Next 16.1+ enables Turbopack's filesystem cache for `next dev` by default (`.next/dev/cache/turbopack`), and it
+      reused a Tailwind scan from before that folder existed — even across a dev-server restart.
+    - Fix: added `@source "../components";` after the `@import` block. Changing `globals.css` invalidated the cached
+      result, and the explicit source keeps component folders in the scan. The served CSS picked up every card
+      class without a restart.
+    - If a new folder's classes are ever missing again: stop `pnpm dev`, delete `.next/dev/cache`, restart.
+- Replaced Clerk's prebuilt `<SignUp />` with a custom paper sign-up card (2026-09-13):
+    - `components/auth/sign-up-card.tsx` (client) runs on the Core 3 `useSignUp()` API against the instance's settings
+      (email required and verified by email code, password required, first/last name optional, Turnstile bot
+      protection, no legal consent). Flow: first name / last name / email → password step, where one
+      `signUp.password({ emailAddress, password, firstName, lastName })` call creates the sign-up → emailed code via
+      `verifications.sendEmailCode` / `verifyEmailCode` → `finalize`. Errors on email or name params (e.g. an address
+      already in use) send the user back to the details step, read from the returned API error's `meta.paramName`
+      because the hook's `errors` is stale inside the handler. GitHub/Google use `signUp.sso` to
+      `/sign-up/sso-callback`, which re-exports the sign-in callback page. A `#clerk-captcha` mount stays in the card
+      for every request.
+    - Shared pieces moved into `components/auth/auth-card.tsx` (card shell with pin + footer, title lockup, SSO buttons,
+      field, submit slab, OR divider, last-used tag, email chip, input classes, and the `toSafeDestination`,
+      `navigateAfterAuth`, `withRedirect` helpers). `sign-in-card.tsx` now uses them with no behaviour change.
+    - `sign-up/[[...sign-up]]/page.tsx` reads `redirect_url` on the server; both cards carry it across the
+      Sign in / Sign up switch links.
+    - Validation checks:
+      - `pnpm typecheck` and `eslint` passed; `/sign-up?redirect_url=/dashboard`, `/sign-up/sso-callback` and `/sign-in`
+        render 200 with the expected markup
+    - Open items:
+      - Not yet exercised end-to-end in a browser (email + password + code, GitHub, Google, existing-email error).
+      - An email that already has an account shows Clerk's error on the details step rather than transferring to
+        sign-in.
+- Fixed two sign-up card bugs (2026-09-13, `components/auth/sign-up-card.tsx`, `sign-in-card.tsx`):
+    - Password leaking into the verification-code field: the password and code step forms rendered at the same spot
+      with the same element structure, so React reused the uncontrolled `<input>` DOM node and its typed value when
+      the step changed. Every step form in both cards now has its own `key`, so each step mounts fresh inputs.
+    - An email that already has an account reached the password step: the details step only advanced local state and
+      Clerk wasn't asked until the password was submitted. Checked the instance: enumeration protection is off, and
+      the one user with the reported address was created by this sign-up card (email-code verified, password set, no
+      GitHub account linked). The details step now calls `signUp.create({ emailAddress, firstName, lastName })`, so
+      Clerk's "email taken" error shows under the email field before the password step. The password step still sends
+      the email and names with `signUp.password`.
+- Removed first/last name from the sign-up card (2026-09-13, `components/auth/sign-up-card.tsx`):
+    - Names are optional on the Clerk instance and unused by the app, so the details step now collects only the email.
+      `signUp.create` and `signUp.password` send just the email (plus the password), and only `email_address` errors
+      send the user back to the details step. Flow unchanged: email → password → emailed code → finalize.

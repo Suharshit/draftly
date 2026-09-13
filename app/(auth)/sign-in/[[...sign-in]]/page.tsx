@@ -1,5 +1,11 @@
-import { SignIn } from "@clerk/nextjs";
+import { SignInCard } from "@/components/auth/sign-in-card";
 
-export default function SignInPage() {
-  return <SignIn />;
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const { redirect_url: redirectUrl } = await searchParams;
+
+  return <SignInCard redirectUrl={typeof redirectUrl === "string" ? redirectUrl : undefined} />;
 }

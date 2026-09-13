@@ -17,8 +17,11 @@ Marketing components live in `components/ui/marketing/` and are exported from it
 barrel: `MarketingNavbar`, `MarketingButton`, `HandwrittenNote`,
 `HandwrittenAnnotation`, `PinnedPhoto`, `CanvasMockup`, `PaperSection`, `AuthorPhoto`,
 `SkillPill`, `DraftlyWordmark` (the two-face text lockup), `MatGrid` (the cutting-mat
-grid overlay). The auth layout sits on the mat with the wordmark and mini-canvas; the
-Clerk components inside it are not yet restyled to paper. The brand spec's rules are the
+grid overlay). The auth layout sits on the mat with the wordmark and mini-canvas. Sign-in
+and sign-up are custom paper cards (`components/auth/sign-in-card.tsx`, `sign-up-card.tsx`)
+built on Clerk's `useSignIn()` / `useSignUp()` hooks, not the prebuilt `<SignIn />` /
+`<SignUp />`. Both share the card shell, SSO buttons, fields and CTA from
+`components/auth/auth-card.tsx`. The brand spec's rules are the
 contract: hard offset shadows only (no blur-only, no glass), corner radius capped at
 2px (`rounded-paper`), one green plus one cream ground, object rotation inside ±8deg,
 handwriting (Caveat) reserved for the human voice, mono (JetBrains Mono) reserved for

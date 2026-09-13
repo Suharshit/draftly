@@ -10,6 +10,10 @@
 @import "@liveblocks/react-ui/styles.css";
 @import "@liveblocks/react-flow/styles.css";
 
+/* Explicit so class scanning never depends on auto-detection picking up new
+   component folders (Turbopack's dev filesystem cache can reuse a stale scan). */
+@source "../components";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

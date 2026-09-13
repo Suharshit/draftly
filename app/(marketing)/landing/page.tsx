@@ -5,26 +5,11 @@ import {
   HandwrittenNote,
   MarketingButton,
   MarketingNavbar,
+  MatGrid,
   PaperSection,
   PinnedPhoto,
   SkillPill,
 } from "@/components/ui/marketing"
-
-/** Cutting-mat grid: minor rule at 32px, major rule at 128px, fixed to the page. */
-const MAT_GRID_STYLE: React.CSSProperties = {
-  backgroundImage: [
-    "linear-gradient(to right, rgba(255,255,255,0.16) 1px, transparent 1px)",
-    "linear-gradient(to bottom, rgba(255,255,255,0.16) 1px, transparent 1px)",
-    "linear-gradient(to right, rgba(255,255,255,0.09) 1px, transparent 1px)",
-    "linear-gradient(to bottom, rgba(255,255,255,0.09) 1px, transparent 1px)",
-  ].join(","),
-  backgroundSize: [
-    "var(--mat-grid-major) var(--mat-grid-major)",
-    "var(--mat-grid-major) var(--mat-grid-major)",
-    "var(--mat-grid-minor) var(--mat-grid-minor)",
-    "var(--mat-grid-minor) var(--mat-grid-minor)",
-  ].join(","),
-}
 
 const SKILLS = [
   { label: "AI drafts", tone: "amber", rotation: -2 },
@@ -44,11 +29,7 @@ export default function LandingPage() {
   return (
     <main className="relative bg-paper-cream">
       <section className="relative z-10 overflow-hidden bg-mat-green">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={MAT_GRID_STYLE}
-        />
+        <MatGrid />
 
         <div className="relative mx-auto w-full max-w-(--content-max) px-(--space-4) pt-(--space-5) pb-(--space-7)">
           <MarketingNavbar />

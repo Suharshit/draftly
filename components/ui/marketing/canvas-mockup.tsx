@@ -24,7 +24,12 @@ function pct(value: number, total: number) {
  * Paper Bright ground, ink cards, Draft Blue connectors, one Amber
  * sticky and one Caveat label. Always tilted -2deg.
  */
-function CanvasMockup({ className, ...props }: React.ComponentProps<"div">) {
+function CanvasMockup({
+  className,
+  caption = "canvas",
+  annotation = "link ’em",
+  ...props
+}: React.ComponentProps<"div"> & { caption?: string; annotation?: string }) {
   return (
     <div
       aria-hidden
@@ -37,7 +42,7 @@ function CanvasMockup({ className, ...props }: React.ComponentProps<"div">) {
       {...props}
     >
       <span className="font-mono text-chrome tracking-chrome uppercase text-ink-soft/70">
-        canvas
+        {caption}
       </span>
 
       <div className="relative mt-[var(--space-2)] aspect-[460/260] w-full">
@@ -94,7 +99,7 @@ function CanvasMockup({ className, ...props }: React.ComponentProps<"div">) {
       </div>
 
       <span className="mt-[var(--space-1)] block text-right font-hand text-[length:var(--text-annotation-min)] leading-none text-ink-soft">
-        link &rsquo;em
+        {annotation}
       </span>
     </div>
   )

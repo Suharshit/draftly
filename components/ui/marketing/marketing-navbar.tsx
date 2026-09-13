@@ -3,6 +3,8 @@ import Link from "next/link"
 
 import { cn } from "@/lib/utils"
 
+import { DraftlyWordmark } from "./draftly-wordmark"
+
 const MARK_SIZE = 168
 
 /**
@@ -37,18 +39,8 @@ function MarketingNavbar({ className }: { className?: string }) {
         />
       </Link>
 
-      {/* The wordmark is set, not placed: the brand sheet's only logo asset is a
-          framed board with a "PRIMARY" caption baked in, and Archivo Bold +
-          Instrument Serif Italic are the two faces it is drawn from anyway. As
-          text it stays crisp at every density and inherits ink. */}
-      <Link
-        href="/landing"
-        aria-label="Draftly"
-        className="flex items-baseline text-[1.5rem] leading-none text-ink"
-      >
-        <span className="font-brand font-bold tracking-brand-tight">Draft</span>
-        {/* Instrument Serif is never set below 24px, which sets the lockup's size. */}
-        <span className="-ml-px font-serif italic">ly</span>
+      <Link href="/landing" aria-label="Draftly" className="text-ink">
+        <DraftlyWordmark />
       </Link>
 
       <Link

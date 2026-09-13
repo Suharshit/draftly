@@ -802,3 +802,38 @@ Update this file whenever the current phase, active feature, or implementation s
     - Validation checks:
       - `pnpm typecheck` and `pnpm lint` passed; `/landing` renders 200 and the about section's merged
         class list confirms the single dashed seam
+- Swapped the navbar menu for the D mark and rebuilt the app icons from it (2026-09-13):
+    - `marketing-navbar.tsx`: the Base UI `Menu` (hamburger trigger + Docs/Login popup) was removed and the
+      left slot now holds `public/Draftly Wordmark-selection (1).png` — the square green D mark — at the
+      same `size-11` footprint, wrapped in a `/landing` link with an `aria-label` since the image is
+      decorative. With no interactive primitive left, the file dropped `"use client"` and renders on the
+      server.
+    - `app/icon.png` and `app/apple-icon.png` are now generated from the same D mark rather than the
+      Gemini-generated ghost. The rounding has to be baked into the pixels — a favicon is an image file,
+      so CSS cannot round it — so both were rendered with `sharp` (already in the lockfile via Next's
+      image optimizer) from the 168px source: `icon.png` is upscaled to 512 and masked with a rounded
+      rect at a 35% corner radius, a squircle that reads as heavily rounded without collapsing into a
+      circle; `apple-icon.png` is a flat 180px square, left unrounded because iOS applies its own mask
+      and renders transparent corners black. The ghost source file is still in `public/` and is
+      unreferenced.
+    - Validation checks:
+      - `tsc --noEmit` passed
+    - Open items:
+      - The Login (`/sign-in`) entry point disappeared with the menu; the hero's "Start creating" button
+        and the about footer's Docs link are the only remaining routes off `/landing`.
+      - The corner rounding is baked into `app/icon.png`, so re-deriving it from the source mark means
+        re-running the `sharp` mask rather than editing a class.
+- Set the navbar centre brand as the two-face wordmark lockup (2026-09-13, `marketing-navbar.tsx` only):
+    - The centre link was a single Archivo string; it now splits into "Draft" in Archivo Bold with
+      `tracking-brand-tight` and "ly" in Instrument Serif Italic, matching the brand sheet's primary
+      wordmark. Set as text rather than placed as an image: the only wordmark asset in `public/` is a
+      framed board with a "PRIMARY" caption baked into the artwork, and the two faces it is drawn from
+      are already loaded — as text the lockup stays crisp at any density and inherits `text-ink`.
+    - The lockup moved from 1.25rem to 1.5rem because Instrument Serif is never set below 24px. The two
+      spans share one `text-[1.5rem] leading-none` parent and align on `items-baseline`, with `-ml-px`
+      tucking the italic "l" against the "t" the way the sheet draws it. `aria-label="Draftly"` keeps it
+      one word to a screen reader.
+    - The D mark in the left slot is unchanged.
+    - Validation checks:
+      - `tsc --noEmit` and `eslint` passed; `/landing` renders 200 with the split lockup in the markup and
+        the icons resolving as `icon.png` 512x512 and `apple-icon.png` 180x180

@@ -1,22 +1,12 @@
-"use client"
-
+import Image from "next/image"
 import Link from "next/link"
-import { Menu } from "@base-ui/react/menu"
 
 import { cn } from "@/lib/utils"
 
-type NavLink = {
-  label: string
-  href: string
-}
-
-const MENU_LINKS: NavLink[] = [
-  { label: "Docs", href: "/docs" },
-  { label: "Login", href: "/sign-in" },
-]
+const MARK_SIZE = 168
 
 /**
- * Floating paper card that sits on the craft mat: menu on the left,
+ * Floating paper card that sits on the craft mat: the D mark on the left,
  * brand in the centre, one mono chrome link on the right.
  */
 function MarketingNavbar({ className }: { className?: string }) {
@@ -29,51 +19,36 @@ function MarketingNavbar({ className }: { className?: string }) {
         className
       )}
     >
-      <Menu.Root>
-        <Menu.Trigger
-          aria-label="Open menu"
-          className={cn(
-            "flex size-11 shrink-0 cursor-pointer flex-col items-center justify-center gap-[3px]",
-            "-my-[var(--space-2)] -ml-[var(--space-2)] outline-none",
-            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink/60"
-          )}
-        >
-          <span aria-hidden className="block h-px w-4 bg-ink" />
-          <span aria-hidden className="block h-px w-4 bg-ink" />
-        </Menu.Trigger>
-
-        <Menu.Portal>
-          <Menu.Positioner align="start" side="bottom" sideOffset={10}>
-            <Menu.Popup
-              className={cn(
-                "min-w-[168px] border border-ink/25 bg-paper-cream rounded-paper shadow-lifted",
-                "p-[var(--space-1)] outline-none"
-              )}
-            >
-              {MENU_LINKS.map((link) => (
-                <Menu.LinkItem
-                  key={link.href}
-                  closeOnClick
-                  render={<Link href={link.href} />}
-                  className={cn(
-                    "flex cursor-pointer items-center rounded-paper px-[var(--space-3)] py-[var(--space-2)]",
-                    "font-brand text-[length:var(--text-ui-label)] font-semibold text-ink outline-none",
-                    "data-[highlighted]:bg-paper-accent-marker-amber"
-                  )}
-                >
-                  {link.label}
-                </Menu.LinkItem>
-              ))}
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
-      </Menu.Root>
-
       <Link
         href="/landing"
-        className="font-brand text-[1.25rem] leading-none font-bold tracking-brand-tight text-ink"
+        aria-label="Draftly home"
+        className={cn(
+          "-my-[var(--space-2)] -ml-[var(--space-2)] block shrink-0 rounded-paper outline-none",
+          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink/60"
+        )}
       >
-        Draftly
+        <Image
+          src="/Draftly Wordmark-selection (1).png"
+          alt=""
+          width={MARK_SIZE}
+          height={MARK_SIZE}
+          priority
+          className="block size-11 rounded-paper object-contain"
+        />
+      </Link>
+
+      {/* The wordmark is set, not placed: the brand sheet's only logo asset is a
+          framed board with a "PRIMARY" caption baked in, and Archivo Bold +
+          Instrument Serif Italic are the two faces it is drawn from anyway. As
+          text it stays crisp at every density and inherits ink. */}
+      <Link
+        href="/landing"
+        aria-label="Draftly"
+        className="flex items-baseline text-[1.5rem] leading-none text-ink"
+      >
+        <span className="font-brand font-bold tracking-brand-tight">Draft</span>
+        {/* Instrument Serif is never set below 24px, which sets the lockup's size. */}
+        <span className="-ml-px font-serif italic">ly</span>
       </Link>
 
       <Link

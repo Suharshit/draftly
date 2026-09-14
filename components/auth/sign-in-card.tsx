@@ -36,8 +36,13 @@ export function SignInCard({ redirectUrl }: { redirectUrl?: string }) {
   const [email, setEmail] = useState("");
   const [trustChannel, setTrustChannel] = useState<"email" | "phone">("email");
   const [localError, setLocalError] = useState<string | null>(null);
+  // `pending` spans a whole submit (which can chain several Clerk requests); `redirecting` holds the
+  // loading state from finalize until navigation lands, so the button never flashes back to "Continue".
+  const [pending, setPending] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
 
-  const busy = fetchStatus === "fetching" || !clerk.loaded;
+  const loading = pending || redirecting;
+  const busy = loading || fetchStatus === "fetching" || !clerk.loaded;
   const lastUsed = clerk.client?.lastAuthenticationStrategy ?? null;
   const lastUsedEmail = lastUsed === "email_code" || lastUsed === "password" || lastUsed === "email_address";
   const globalError = messageOf(errors.global?.[0] as AuthMessage) ?? localError;
@@ -45,8 +50,27 @@ export function SignInCard({ redirectUrl }: { redirectUrl?: string }) {
   const supportsFirstFactor = (strategy: string) =>
     signIn.supportedFirstFactors.some((factor) => factor.strategy === strategy);
 
+  /** Wraps a submit handler so the CTA shows "Loading…" for its full duration and double submits are ignored. */
+  function withPending(handler: (form: HTMLFormElement) => Promise<void>) {
+    return async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (loading) return;
+      const form = event.currentTarget;
+      setPending(true);
+      try {
+        await handler(form);
+      } finally {
+        setPending(false);
+      }
+    };
+  }
+
   async function finish() {
-    await signIn.finalize({ navigate: navigateAfterAuth(router.push, toSafeDestination(redirectUrl)) });
+    setRedirecting(true);
+    const { error } = await signIn.finalize({
+      navigate: navigateAfterAuth(router.push, toSafeDestination(redirectUrl)),
+    });
+    if (error) setRedirecting(false);
   }
 
   /** Routes the flow after any factor succeeds: done, device trust, or MFA. */
@@ -93,8 +117,7 @@ export function SignInCard({ redirectUrl }: { redirectUrl?: string }) {
     });
   }
 
-  async function handleIdentifier(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleIdentifier() {
     setLocalError(null);
 
     const { error } = await signIn.create({ identifier: email.trim() });
@@ -114,16 +137,14 @@ export function SignInCard({ redirectUrl }: { redirectUrl?: string }) {
     if (!error) setStep("email-code");
   }
 
-  async function handlePassword(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const password = String(new FormData(event.currentTarget).get("password") ?? "");
+  async function handlePassword(form: HTMLFormElement) {
+    const password = String(new FormData(form).get("password") ?? "");
     const { error } = await signIn.password({ identifier: email.trim(), password });
     if (!error) await advance();
   }
 
-  async function handleCode(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const code = String(new FormData(event.currentTarget).get("code") ?? "").trim();
+  async function handleCode(form: HTMLFormElement) {
+    const code = String(new FormData(form).get("code") ?? "").trim();
 
     const { error } =
       step === "email-code"
@@ -164,7 +185,7 @@ export function SignInCard({ redirectUrl }: { redirectUrl?: string }) {
           <SsoButtons disabled={busy} lastUsed={lastUsed} onSelect={handleSso} />
           <OrDivider />
 
-          <form onSubmit={handleIdentifier} noValidate>
+          <form key="identifier" onSubmit={withPending(handleIdentifier)} noValidate>
             <Field id="email" label="Email address" lastUsed={lastUsedEmail} error={messageOf(errors.fields.identifier)}>
               <input
                 id="email"
@@ -179,12 +200,14 @@ export function SignInCard({ redirectUrl }: { redirectUrl?: string }) {
                 className={inputClass}
               />
             </Field>
-            <SubmitButton disabled={busy || !email.trim()}>Continue</SubmitButton>
+            <SubmitButton loading={loading} disabled={busy || !email.trim()}>
+              Continue
+            </SubmitButton>
           </form>
         </>
       ) : step === "password" ? (
         // Keyed per step so the password <input> node is never reused by the code form.
-        <form key="password" onSubmit={handlePassword} noValidate className="mt-(--space-6)">
+        <form key="password" onSubmit={withPending(handlePassword)} noValidate className="mt-(--space-6)">
           <IdentifierChip email={email} onChange={startOver} />
           <Field id="password" label="Password" error={messageOf(errors.fields.password)}>
             <input
@@ -199,7 +222,9 @@ export function SignInCard({ redirectUrl }: { redirectUrl?: string }) {
               className={inputClass}
             />
           </Field>
-          <SubmitButton disabled={busy}>Continue</SubmitButton>
+          <SubmitButton loading={loading} disabled={busy}>
+            Continue
+          </SubmitButton>
           {supportsFirstFactor("email_code") ? (
             <button type="button" onClick={sendEmailCode} disabled={busy} className={quietLinkClass}>
               Email me a code instead
@@ -207,7 +232,7 @@ export function SignInCard({ redirectUrl }: { redirectUrl?: string }) {
           ) : null}
         </form>
       ) : (
-        <form key={step} onSubmit={handleCode} noValidate className="mt-(--space-6)">
+        <form key={step} onSubmit={withPending(handleCode)} noValidate className="mt-(--space-6)">
           <IdentifierChip email={email} onChange={startOver} />
           <Field id="code" label="Verification code" error={messageOf(errors.fields.code)}>
             <input
@@ -223,7 +248,9 @@ export function SignInCard({ redirectUrl }: { redirectUrl?: string }) {
               className={codeInputClass}
             />
           </Field>
-          <SubmitButton disabled={busy}>Verify</SubmitButton>
+          <SubmitButton loading={loading} disabled={busy}>
+            Verify
+          </SubmitButton>
           {step === "email-code" ? (
             <button type="button" onClick={sendEmailCode} disabled={busy} className={quietLinkClass}>
               Resend code

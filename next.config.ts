@@ -16,7 +16,18 @@ const nextConfig: NextConfig = {
         hostname: 'lh3.googleusercontent.com',
       },
     ],
-  }
+  },
+  async redirects() {
+    return [
+      // The landing page is served at `/` (app/page.tsx renders it); its source file stays
+      // in app/(marketing)/landing/ for editing, so send the old path home.
+      {
+        source: '/landing',
+        destination: '/',
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

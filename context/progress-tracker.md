@@ -917,3 +917,20 @@ Update this file whenever the current phase, active feature, or implementation s
     - Names are optional on the Clerk instance and unused by the app, so the details step now collects only the email.
       `signUp.create` and `signUp.password` send just the email (plus the password), and only `email_address` errors
       send the user back to the details step. Flow unchanged: email → password → emailed code → finalize.
+- Added a loading state to the sign-in and sign-up submit buttons (2026-09-13, `components/auth/`):
+    - `SubmitButton` takes `loading`: it disables, sets `aria-busy`, keeps full opacity with a wait cursor, and shows
+      "Loading…" (a `role="status"` span) in place of Continue / Verify.
+    - Both cards wrap each form submit in `withPending`, so `pending` covers the whole handler, including chained
+      requests (create → send code, verify → finalize) that `fetchStatus` alone flickers between; repeat submits
+      while loading are ignored. A `redirecting` flag is set before `finalize` and cleared only if it errors, so the
+      button stays in "Loading…" until navigation lands. GitHub/Google and the quiet links stay disabled throughout.
+- Served the landing page at `/` and fixed logout getting stuck (2026-09-13):
+    - Cause: `UserButton` signs out to Clerk's default `/`, and `app/page.tsx` then called `redirect("/landing")` for
+      signed-out visitors. That second server redirect ran during Clerk's client-side navigation while the session was
+      clearing, so the page didn't move on until a manual reload.
+    - `app/page.tsx` now renders the landing page component directly for signed-out visitors (imported from
+      `app/(marketing)/landing/page.tsx`, which stays where it is for editing) and still redirects signed-in users to
+      `/editor`. No second redirect is left on logout.
+    - `/landing` redirects to `/` via a temporary (307) `redirects()` entry in `next.config.ts`, so old links still work.
+      The navbar's D mark and wordmark and the auth layout's wordmark now link to `/`, `/landing` left the proxy's
+      public route list, and `ClerkProvider` sets `afterSignOutUrl="/"` explicitly.

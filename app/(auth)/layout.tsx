@@ -12,7 +12,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         {/* Brand column: wordmark + tagline up top, the mini-canvas pinned to the bottom. */}
         <section className="flex flex-col justify-between gap-(--space-6)">
           <div>
-            <Link href="/landing" aria-label="Draftly home" className="relative inline-block text-paper-cream">
+            <Link href="/" aria-label="Draftly home" className="relative inline-block text-paper-cream">
               <DraftlyWordmark className="text-[clamp(2.5rem,5vw,4rem)]" />
             </Link>
 

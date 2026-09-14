@@ -249,19 +249,36 @@ export function Field({
   );
 }
 
-export function SubmitButton({ disabled, children }: { disabled: boolean; children: ReactNode }) {
+/** Ink slab CTA. While `loading`, it stays at full strength and reads "Loading…" so a pending request never looks frozen. */
+export function SubmitButton({
+  disabled,
+  loading = false,
+  children,
+}: {
+  disabled: boolean;
+  loading?: boolean;
+  children: ReactNode;
+}) {
   return (
     <button
       type="submit"
-      disabled={disabled}
+      disabled={disabled || loading}
+      aria-busy={loading}
       className={cn(
         marketingButtonVariants({ variant: "solid" }),
         "mt-(--space-5) min-h-16 w-full text-[1.125rem] focus-visible:outline-ink",
         "disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0 disabled:hover:shadow-flat",
+        loading && "cursor-wait disabled:cursor-wait disabled:opacity-100",
       )}
     >
-      {children}
-      <span aria-hidden className="text-[0.625rem]">&#9654;</span>
+      {loading ? (
+        <span role="status">Loading&hellip;</span>
+      ) : (
+        <>
+          {children}
+          <span aria-hidden className="text-[0.625rem]">&#9654;</span>
+        </>
+      )}
     </button>
   );
 }

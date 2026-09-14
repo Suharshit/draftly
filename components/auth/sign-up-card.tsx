@@ -36,14 +36,38 @@ export function SignUpCard({ redirectUrl }: { redirectUrl?: string }) {
   const [step, setStep] = useState<Step>("details");
   const [email, setEmail] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+  // `pending` spans a whole submit (which can chain several Clerk requests); `redirecting` holds the
+  // loading state from finalize until navigation lands, so the button never flashes back to "Continue".
+  const [pending, setPending] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
 
-  const busy = fetchStatus === "fetching" || !clerk.loaded;
+  const loading = pending || redirecting;
+  const busy = loading || fetchStatus === "fetching" || !clerk.loaded;
   const globalError = messageOf(errors.global?.[0] as AuthMessage) ?? localError;
+
+  /** Wraps a submit handler so the CTA shows "Loading…" for its full duration and double submits are ignored. */
+  function withPending(handler: (form: HTMLFormElement) => Promise<void>) {
+    return async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (loading) return;
+      const form = event.currentTarget;
+      setPending(true);
+      try {
+        await handler(form);
+      } finally {
+        setPending(false);
+      }
+    };
+  }
 
   /** Routes the flow after each request: done, email verification, or an unsupported requirement. */
   async function advance() {
     if (signUp.status === "complete") {
-      await signUp.finalize({ navigate: navigateAfterAuth(router.push, toSafeDestination(redirectUrl)) });
+      setRedirecting(true);
+      const { error } = await signUp.finalize({
+        navigate: navigateAfterAuth(router.push, toSafeDestination(redirectUrl)),
+      });
+      if (error) setRedirecting(false);
       return;
     }
 
@@ -69,24 +93,22 @@ export function SignUpCard({ redirectUrl }: { redirectUrl?: string }) {
     });
   }
 
-  async function handleDetails(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleDetails() {
     setLocalError(null);
 
-    // Register the details with Clerk now, so an email that already has an account is rejected
+    // Register the email with Clerk now, so an address that already has an account is rejected
     // on this step instead of after the user has chosen a password.
     const { error } = await signUp.create({ emailAddress: email.trim() });
     if (!error) setStep("password");
   }
 
-  async function handlePassword(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const password = String(new FormData(event.currentTarget).get("password") ?? "");
+  async function handlePassword(form: HTMLFormElement) {
+    const password = String(new FormData(form).get("password") ?? "");
 
     const { error } = await signUp.password({ emailAddress: email.trim(), password });
 
     if (error) {
-      // Detail errors (e.g. an email that's already taken) are shown next to their fields, so step back to them.
+      // Email errors (e.g. an address that's already taken) are shown next to the field, so step back to it.
       // The hook's `errors` is stale inside this handler; read the params off the returned API error instead.
       const params = "errors" in error && Array.isArray(error.errors)
         ? (error.errors as { meta?: { paramName?: string } }[]).map((apiError) => apiError.meta?.paramName)
@@ -100,9 +122,8 @@ export function SignUpCard({ redirectUrl }: { redirectUrl?: string }) {
     await advance();
   }
 
-  async function handleCode(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const code = String(new FormData(event.currentTarget).get("code") ?? "").trim();
+  async function handleCode(form: HTMLFormElement) {
+    const code = String(new FormData(form).get("code") ?? "").trim();
     const { error } = await signUp.verifications.verifyEmailCode({ code });
     if (!error) await advance();
   }
@@ -132,7 +153,7 @@ export function SignUpCard({ redirectUrl }: { redirectUrl?: string }) {
           <SsoButtons disabled={busy} onSelect={handleSso} />
           <OrDivider />
 
-          <form onSubmit={handleDetails} noValidate>
+          <form key="details" onSubmit={withPending(handleDetails)} noValidate>
             <Field id="email" label="Email address" error={messageOf(errors.fields.emailAddress)}>
               <input
                 id="email"
@@ -148,13 +169,15 @@ export function SignUpCard({ redirectUrl }: { redirectUrl?: string }) {
               />
             </Field>
 
-            <SubmitButton disabled={busy || !email.trim()}>Continue</SubmitButton>
+            <SubmitButton loading={loading} disabled={busy || !email.trim()}>
+              Continue
+            </SubmitButton>
           </form>
         </>
       ) : step === "password" ? (
         // Each step form gets its own key: otherwise React reuses the same uncontrolled <input> node
         // across steps and the typed password carries over into the verification-code field.
-        <form key="password" onSubmit={handlePassword} noValidate className="mt-(--space-6)">
+        <form key="password" onSubmit={withPending(handlePassword)} noValidate className="mt-(--space-6)">
           <IdentifierChip email={email} onChange={() => setStep("details")} />
           <Field id="password" label="Password" error={messageOf(errors.fields.password)}>
             <input
@@ -169,10 +192,12 @@ export function SignUpCard({ redirectUrl }: { redirectUrl?: string }) {
               className={inputClass}
             />
           </Field>
-          <SubmitButton disabled={busy}>Continue</SubmitButton>
+          <SubmitButton loading={loading} disabled={busy}>
+            Continue
+          </SubmitButton>
         </form>
       ) : (
-        <form key="email-code" onSubmit={handleCode} noValidate className="mt-(--space-6)">
+        <form key="email-code" onSubmit={withPending(handleCode)} noValidate className="mt-(--space-6)">
           <IdentifierChip email={email} onChange={startOver} />
           <Field id="code" label="Verification code" error={messageOf(errors.fields.code)}>
             <input
@@ -188,7 +213,9 @@ export function SignUpCard({ redirectUrl }: { redirectUrl?: string }) {
               className={codeInputClass}
             />
           </Field>
-          <SubmitButton disabled={busy}>Verify</SubmitButton>
+          <SubmitButton loading={loading} disabled={busy}>
+            Verify
+          </SubmitButton>
           <button type="button" onClick={sendEmailCode} disabled={busy} className={quietLinkClass}>
             Resend code
           </button>

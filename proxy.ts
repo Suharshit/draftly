@@ -21,7 +21,6 @@ const isPublicRoute = createRouteMatcher([
   `${signInPath}(.*)`,
   signUpPath,
   `${signUpPath}(.*)`,
-  "/landing",
   "/docs",
   "/docs(.*)",
 ]);

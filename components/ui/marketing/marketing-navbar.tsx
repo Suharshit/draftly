@@ -22,7 +22,7 @@ function MarketingNavbar({ className }: { className?: string }) {
       )}
     >
       <Link
-        href="/landing"
+        href="/"
         aria-label="Draftly home"
         className={cn(
           "-my-[var(--space-2)] -ml-[var(--space-2)] block shrink-0 rounded-paper outline-none",
@@ -39,7 +39,7 @@ function MarketingNavbar({ className }: { className?: string }) {
         />
       </Link>
 
-      <Link href="/landing" aria-label="Draftly" className="text-ink">
+      <Link href="/" aria-label="Draftly" className="text-ink">
         <DraftlyWordmark />
       </Link>
 

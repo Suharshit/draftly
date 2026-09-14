@@ -934,3 +934,15 @@ Update this file whenever the current phase, active feature, or implementation s
     - `/landing` redirects to `/` via a temporary (307) `redirects()` entry in `next.config.ts`, so old links still work.
       The navbar's D mark and wordmark and the auth layout's wordmark now link to `/`, `/landing` left the proxy's
       public route list, and `ClerkProvider` sets `afterSignOutUrl="/"` explicitly.
+- Added the brand loading screen component (2026-09-14):
+    - `components/ui/marketing/draftly-loader.tsx` (client), exported as `DraftlyLoader` from the marketing barrel,
+      built from the wireframe `Draftly Loading Screen.html`. Notebook-paper ground (22px rules, coral margin line,
+      soft vignette), amber sticky note with tape that swings between -3deg and -1.4deg, a Caveat status word that
+      rotates every `pace` ms (min 600) from the `craft` or `plain` word set, three pulsing ink dots, a crawling dashed
+      rule, the wordmark, a mono caption and a footer line. Brand tokens only.
+    - Props: `tone`, `pace`, `caption`, `fullScreen` (viewport height, or fill the parent with a 480px floor).
+    - Accessibility: `role="status"` with a static sr-only "Loading. {caption}." so the rotating words aren't announced;
+      decorative parts `aria-hidden`; motion uses `motion-safe:` so reduced-motion users see a still note.
+    - Keyframes `loader-dot`, `loader-swing`, `loader-crawl` and `--animate-loader-*` live in a `@theme` block at the end
+      of `app/globals.css`.
+    - Not used anywhere yet. `/docs` temporarily renders it full-screen for testing; replace when docs get content.

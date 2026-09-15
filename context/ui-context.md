@@ -9,8 +9,9 @@ Two separate visual systems live in this app and must not be mixed:
    `ProjectSidebar` and the editor home in `EditorShell` — uses the brand tokens (paper-cream ground,
    ink type and CTAs, JetBrains Mono chrome, `rounded-paper`, `shadow-flat`) with `scheme-light`.
    The canvas ground (cream with ink dots), AI sidebar, shape panel, control bar, minimap and the top-right
-   canvas status panel use the brand tokens too. Nodes, edges, live cursors, the AI thinking indicator and
-   the project/share dialogs are still product-dark.
+   canvas status panel use the brand tokens too, and so do the project, share and starter-templates dialogs
+   (all built on `PaperDialog` in `components/editor/paper-dialog.tsx`) and the Clerk user menu (`UserMenuButton`). Live
+   cursors, the AI thinking indicator and Clerk's "Manage account" profile modal are still product-dark.
 2. **Marketing (`app/(marketing)`) and auth (`app/(auth)`)** — the Lab-site brand & craft system v1 defined in
    `app/globals.css` (Sept 2026). Marketing surfaces use **only** the brand tokens
    (`--mat-green`, `--paper-cream`, `--ink`, paper accents, `--font-brand-*`, the

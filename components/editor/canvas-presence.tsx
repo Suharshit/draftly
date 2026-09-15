@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
-import { useUser, UserButton } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { useOthers } from "@liveblocks/react/suspense";
 import { useStore, ViewportPortal } from "@xyflow/react";
 import { Bot } from "lucide-react";
 
+import { UserMenuButton } from "@/components/editor/user-menu-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
@@ -96,14 +97,7 @@ export function CanvasPresenceOverlay({ isAiSidebarOpen }: CanvasPresenceOverlay
         </>
       ) : null}
       <PanelDivider />
-      <UserButton
-        appearance={{
-          elements: {
-            userButtonAvatarBox: "h-8 w-8",
-            avatarBox: "h-8 w-8 border border-ink/40",
-          },
-        }}
-      />
+      <UserMenuButton avatarSize="2rem" />
     </div>
   );
 }

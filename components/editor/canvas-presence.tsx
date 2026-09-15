@@ -3,10 +3,11 @@
 import { useMemo } from "react";
 import { useUser, UserButton } from "@clerk/nextjs";
 import { useOthers } from "@liveblocks/react/suspense";
-import { ViewportPortal } from "@xyflow/react";
+import { useStore, ViewportPortal } from "@xyflow/react";
 import { Bot } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 
 interface PresenceCursor {
   x: number;
@@ -22,9 +23,21 @@ function getInitials(name: string): string {
     .join("");
 }
 
-export function CanvasPresenceOverlay() {
+function PanelDivider() {
+  return <span aria-hidden className="h-5 w-px shrink-0 bg-ink/15" />;
+}
+
+interface CanvasPresenceOverlayProps {
+  /** The docked AI sidebar covers the canvas's right edge on lg+, so the panel sits left of it. */
+  isAiSidebarOpen: boolean;
+}
+
+/** Top-right canvas status: zoom, node count, active collaborators and the user menu. */
+export function CanvasPresenceOverlay({ isAiSidebarOpen }: CanvasPresenceOverlayProps) {
   const { user } = useUser();
   const others = useOthers();
+  const zoomPercent = useStore((state) => Math.round(state.transform[2] * 100));
+  const nodeCount = useStore((state) => state.nodes.length);
 
   const collaborators = useMemo(() => {
     return others.filter((other) => other.id !== user?.id && other.info.id !== user?.id);
@@ -34,37 +47,60 @@ export function CanvasPresenceOverlay() {
   const overflowCount = Math.max(0, collaborators.length - visibleCollaborators.length);
 
   return (
-    <div className="absolute right-3 top-3 z-20 flex items-center rounded-md border border-[var(--border-default)] bg-[var(--bg-base)]/85 px-2 py-1 backdrop-blur-sm">
+    <div
+      aria-label="Canvas status"
+      className={cn(
+        "absolute top-3 right-3 z-20 flex h-12 items-center gap-3 rounded-paper border border-ink bg-paper-bright px-3 text-ink shadow-flat scheme-light",
+        "transition-[right] duration-300 ease-out",
+        isAiSidebarOpen && "lg:right-97",
+      )}
+    >
+      <p className="font-mono text-chrome tracking-chrome text-ink uppercase">
+        <span className="sr-only">Zoom </span>
+        {zoomPercent}%
+      </p>
+      <PanelDivider />
+      <p className="font-mono text-chrome tracking-chrome text-ink-soft uppercase">
+        {nodeCount} {nodeCount === 1 ? "node" : "nodes"}
+      </p>
       {collaborators.length > 0 ? (
         <>
-          <div className="flex -space-x-2">
+          <PanelDivider />
+          <div className="flex -space-x-2" title={collaborators.map((collaborator) => collaborator.info.name).join(", ")}>
+            <span className="sr-only">
+              {collaborators.length} {collaborators.length === 1 ? "collaborator" : "collaborators"} online
+            </span>
             {visibleCollaborators.map((collaborator) => (
               <Avatar
                 key={collaborator.connectionId}
-                className="h-8 w-8 ring-2 ring-background"
+                className="h-8 w-8 ring-2 ring-paper-bright"
                 aria-hidden="true"
               >
                 {collaborator.info.avatar ? (
                   <AvatarImage src={collaborator.info.avatar} alt={collaborator.info.name} />
                 ) : null}
-                <AvatarFallback className="text-xs font-medium">
+                <AvatarFallback className="bg-paper-accent-marker-amber font-brand text-xs font-semibold text-ink">
                   {getInitials(collaborator.info.name)}
                 </AvatarFallback>
               </Avatar>
             ))}
             {overflowCount > 0 ? (
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--bg-surface)] text-xs font-semibold text-[var(--text-primary)] ring-2 ring-background">
+              <div
+                aria-hidden="true"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-ink font-brand text-xs font-semibold text-paper-cream ring-2 ring-paper-bright"
+              >
                 +{overflowCount}
               </div>
             ) : null}
           </div>
-          <div className="mx-2 h-6 w-px bg-[var(--border-default)]" />
         </>
       ) : null}
+      <PanelDivider />
       <UserButton
         appearance={{
           elements: {
             userButtonAvatarBox: "h-8 w-8",
+            avatarBox: "h-8 w-8 border border-ink/40",
           },
         }}
       />

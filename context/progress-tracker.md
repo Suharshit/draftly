@@ -1021,3 +1021,22 @@ Update this file whenever the current phase, active feature, or implementation s
       and a segmented B / I / − size + group. Toggles now expose `aria-pressed`.
     - All handlers, conditions (including hiding when the project sidebar is open with nothing selected), icons,
       position and node/edge data values are unchanged. No backend changes.
+- Light canvas ground and a canvas status panel (2026-09-15):
+    - `canvas-flow.tsx`: canvas ground is `paper-cream` with ink dots at 22%; the minimap is a paper-bright card
+      with an ink border, flat shadow, ink node blocks and a light ink mask. The workspace canvas section and the
+      canvas connecting/error text (`canvas-wrapper.tsx`) switched to cream / ink-soft so loading doesn't flash dark.
+    - Nodes, edges and cursors are unchanged: the dark node slabs and grey edges still stand out on cream.
+    - `CanvasPresenceOverlay` is now the top-right canvas status panel: zoom % and node count (mono, read from the
+      React Flow store), then the collaborator avatar stack (amber initials, ink "+N"), then the user button, on a
+      paper-bright card with an ink border and flat shadow.
+    - The docked AI sidebar used to cover that panel. `isAiSidebarOpen` now flows
+      `EditorWorkspaceShell` → `CanvasWrapper` → `CanvasFlow` → `CanvasPresenceOverlay`, which moves left of the
+      sidebar on lg+ (where the sidebar shows). No backend changes.
+- Stopped the project sidebar from shifting the canvas (2026-09-15):
+    - Cause: on md+ the docked `ProjectSidebar` took layout width, so the canvas section narrowed and React Flow's
+      viewport origin (its left edge) moved right with it.
+    - `ProjectSidebar` gained `docked` (default `true`). `EditorWorkspaceShell` passes `docked={false}`, so inside a
+      project the sidebar floats over the canvas (fixed, flat shadow) at every width and the canvas keeps its size.
+      The editor home keeps the docked layout from the wireframe.
+    - `CanvasControlBar`'s existing rule (hide while the sidebar is open and nothing is selected) applies again,
+      since the floating sidebar covers its bottom-left spot.

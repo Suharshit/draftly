@@ -31,7 +31,7 @@ class CanvasErrorBoundary extends Component<
     if (this.state.hasError) {
       return (
         <div className="flex h-full w-full items-center justify-center">
-          <p className="text-sm text-muted-foreground">
+          <p className="font-brand text-sm text-ink-soft">
             Failed to connect to the collaborative canvas. Check your connection and try again.
           </p>
         </div>
@@ -48,6 +48,8 @@ interface CanvasWrapperProps {
   canAutosave: boolean;
   onSaveStatusChange?: (status: CanvasSaveStatus) => void;
   isSidebarOpen: boolean;
+  /** Moves the canvas status panel clear of the docked AI sidebar. */
+  isAiSidebarOpen: boolean;
   /**
    * Rendered inside the room, next to the canvas. Overlays that need room
    * presence (such as the AI sidebar) belong here rather than as a sibling of
@@ -71,6 +73,7 @@ export function CanvasWrapper({
   canAutosave,
   onSaveStatusChange,
   isSidebarOpen,
+  isAiSidebarOpen,
   children,
 }: CanvasWrapperProps) {
   return (
@@ -83,7 +86,7 @@ export function CanvasWrapper({
           <ClientSideSuspense
             fallback={
               <div className="flex h-full w-full items-center justify-center">
-                <p className="text-sm text-muted-foreground">Connecting to canvas…</p>
+                <p className="font-brand text-sm text-ink-soft">Connecting to canvas…</p>
               </div>
             }
           >
@@ -92,6 +95,7 @@ export function CanvasWrapper({
               canAutosave={canAutosave}
               onSaveStatusChange={onSaveStatusChange}
               isSidebarOpen={isSidebarOpen}
+              isAiSidebarOpen={isAiSidebarOpen}
             />
           </ClientSideSuspense>
         </CanvasErrorBoundary>

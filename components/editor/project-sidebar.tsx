@@ -19,6 +19,11 @@ interface ProjectSidebarProps {
   onCreateProject: () => void;
   onRenameProject: (projectId: string) => void;
   onDeleteProject: (projectId: string) => void;
+  /**
+   * Docked (default): on md+ the sidebar takes layout space and pushes content aside.
+   * Undocked: it floats over the content at every width, so the canvas never resizes or shifts.
+   */
+  docked?: boolean;
 }
 
 function formatRelativeTime(isoDate: string, now: number) {
@@ -57,6 +62,7 @@ export function ProjectSidebar({
   onCreateProject,
   onRenameProject,
   onDeleteProject,
+  docked = true,
 }: ProjectSidebarProps) {
   const { user } = useUser();
   const [search, setSearch] = useState("");
@@ -104,8 +110,12 @@ export function ProjectSidebar({
         className={cn(
           "fixed top-16 bottom-0 left-0 z-40 shrink-0 overflow-hidden border-ink/15 bg-paper-cream text-ink scheme-light",
           "transition-[translate,width] duration-200 ease-out",
-          "md:relative md:top-auto md:bottom-auto md:left-auto md:z-auto",
-          isOpen ? "w-72 translate-x-0 border-r" : "w-72 -translate-x-full md:w-0 md:translate-x-0",
+          docked
+            ? [
+                "md:relative md:top-auto md:bottom-auto md:left-auto md:z-auto",
+                isOpen ? "w-72 translate-x-0 border-r" : "w-72 -translate-x-full md:w-0 md:translate-x-0",
+              ]
+            : ["w-72 border-r", isOpen ? "translate-x-0" : "-translate-x-full"],
         )}
       >
         <div className="flex h-full w-72 flex-col bg-ink/[0.035]">

@@ -65,13 +65,14 @@ export function EditorWorkspaceShell({
           myProjects={ownedProjects}
           sharedProjects={sharedProjects}
           activeProjectId={projectId}
+          docked={false}
           onCreateProject={openCreateDialog}
           onRenameProject={openRenameDialog}
           onDeleteProject={openDeleteDialog}
         />
 
         <section
-          className="relative flex min-w-0 flex-1 overflow-hidden bg-background"
+          className="relative flex min-w-0 flex-1 overflow-hidden bg-paper-cream"
           aria-label="Collaborative canvas"
         >
           <CanvasWrapper
@@ -79,6 +80,7 @@ export function EditorWorkspaceShell({
             canAutosave={isOwner}
             onSaveStatusChange={setSaveStatus}
             isSidebarOpen={isSidebarOpen}
+            isAiSidebarOpen={isAiSidebarOpen}
           >
             <AiSidebar
               open={isAiSidebarOpen}

@@ -10,9 +10,9 @@ Update this file whenever the current phase, active feature, or implementation s
 
 - Persistent, multi-turn AI design sessions (plan: storage → wire sessions → turn engine → UI cards → generation
   quality → docs). Steps 1 (storage, PR #21), 2 (sessions in the sidebar, PR #22) and 3 (clarify → plan → generate
-  turn engine, PR #23) are done; step 4 (question/plan/result cards in the sidebar) is built on
-  `feat/ai-agent-cards` and awaiting a live run; next is step 5, generation quality (canvas context, kickers,
-  fills, edge styles, validate-and-repair).
+  turn engine, PR #23) and 4 (question/plan/result cards, PR #25) are done; step 5 (generation quality: canvas
+  context, roles and kickers, async edges, validate-and-repair) is built on `feat/ai-generation-quality` and
+  awaiting its live run; step 6 (docs) follows, then the Specs tab.
 - After that: the Specs tab (Generate Spec + automatic Markdown download), which remains inert.
 
 ## Completed
@@ -1373,4 +1373,56 @@ Update this file whenever the current phase, active feature, or implementation s
       - DB turn checks (15) passed after the shared-reader refactor
       - Live flow on `gemini-3.5-flash-lite` through the Trigger worker passed (message → questions → skip → plan →
         generate; see the step 3 entry), including QUESTIONS and PLAN payloads that now store the agent's reply.
-    - Not yet verified: clicking through the cards in a signed-in browser (chips, typed answers, send, skip, draw).
+    - Browser check by the user (2026-09-16), both working: a detailed prompt with every question answered, and a
+      low-detail prompt that skipped the questions and generated a good design.
+- AI sessions, step 5: generation quality — canvas context, roles and kickers, async edges, validate and repair
+  (2026-09-16, branch `feat/ai-generation-quality`):
+    - Shared node roles: `types/canvas.ts` now has `NODE_ROLES` (entry, compute, messaging, data, output),
+      `NODE_ROLE_FILLS`, and `getRoleFill`, taken from the starter templates' private role map, which now uses them.
+      `SHAPE_KICKERS` moved here from `canvas-node.tsx` (re-exported there for the control bar) so server code can read
+      it without importing React Flow.
+    - `lib/ai/canvas-summary.ts`: `summarizeCanvas` turns the room into components with refs (`ex-1`…), kind (kicker or
+      the shape default), and used connection points; connections (label, async); and text notes. Capped at 60
+      components, 80 connections, 10 notes. `formatCanvasSummary` renders it for prompts.
+    - `lib/design-generation.ts`: the generation schema replaces the legacy dark `colorId` with `role` and `kicker`, and
+      edges gain `delivery: sync | async`. Edge endpoints may be a new node id or an existing ref. `buildCanvasGraph`
+      takes the existing canvas: refs resolve to existing node ids; a generated node that repeats an existing label is
+      not drawn and its edges attach to the existing node; repeated labels among new nodes fold into the first;
+      unknown endpoints, self loops, and repeated pairs (either direction) are dropped; fills come from the role; async
+      edges are dashed; connection points are assigned with existing edges counted. `MAX_GRAPH_NODES` /
+      `MAX_GRAPH_EDGES` are exported.
+    - `lib/ai/graph-validation.ts`: `validateDesignGraph` reports, in messages written for the model: over-limit counts,
+      duplicate ids, new ids shaped like refs, components already on the canvas, duplicate labels, unknown references,
+      self loops, repeated connections, components over 4 connections (existing ones included), unconnected new
+      components, and plan components missing from the diagram.
+    - `lib/ai/prompts.ts`: the canvas summary goes into analyze (treat requests as changes to the existing design),
+      plan (list only components to add, refer to existing ones by name), and generate (connect by ref, roles,
+      kickers, async delivery, every new component connected). New `buildRepairPrompt`.
+    - `lib/ai/design-agent-engine.ts`: `analyzeTurn`, `draftPlan`, and `generateDesignGraph` take the canvas summary.
+      `generateDesignGraph` validates the diagram and, when anything is wrong, makes one repair call with the issues
+      and the previous diagram, keeping whichever attempt has fewer issues (a failed repair keeps the first). It
+      returns `{ graph, issues, repairedIssues }`.
+    - `src/trigger/design-agent.ts`: reads the room read-only at the start of every turn and passes the summary to each
+      step. When writing, it uses the live room for layout and connection points and drops refs to components deleted
+      since the read. Repaired and remaining issues are logged. Comment updated: a turn makes at most three model calls.
+    - Validation checks:
+      - `pnpm typecheck` and `pnpm lint` passed
+      - Offline checks (36, no model calls): canvas summary (refs only for labelled drawn components, kinds, used points,
+        connections, notes, empty canvas, 60-component cap); every validation rule, including a clean graph with no
+        issues; `buildCanvasGraph` (existing duplicates and repeated labels not drawn, role fills, kickers, ref and
+        duplicate resolution, dropped unknown refs, self loops and repeated pairs, dashed async edges, handles on every
+        edge, new edges avoiding used sides, only an already-full node sharing a side, refs dropped without canvas
+        context); all 13 starter templates still on paper fills, entry still draft blue.
+      - Live extend run on `gemini-3.5-flash-lite` through the Trigger worker, on a throwaway room seeded with the
+        Microservices template (8 nodes, 8 edges): "Add a Redis cache in front of the user database, and a notification
+        service that consumes order events." → PLAN in 12.4s listing only the 3 new components (User Cache, Event
+        Broker, Notification Service) with 2 decisions → generate in 12.6s added 3 nodes (kickers Queue / Worker /
+        Cache, paper fills) and 4 edges: User Service → User Cache → User DB, and Order Service → Event Broker →
+        Notification Service, both order-event links dashed. Existing nodes untouched, no component redrawn, no
+        node forced to share a connection point, counts match the room. Test project, room, sessions, and TaskRuns
+        removed. 0 failures, 0 warnings.
+    - Follow-up from that run: the plan's flows read "User Service (ex-7) → User Cache → User DB (ex-8)" — the model
+      copied internal refs into user-facing plan text despite the prompt. `removeCanvasRefs` in
+      `design-agent-engine.ts` now strips parenthesised refs ("(ex-7)", "(ex-4, ex-5)") from the plan summary,
+      responsibilities, flows, decisions, and assumptions after drafting; other parentheses are left alone. Covered
+      by 3 more offline checks.

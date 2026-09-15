@@ -14,11 +14,14 @@ import {
   type DesignPlan,
   type TurnAnalysis,
 } from "@/lib/ai/agent-schema";
+import { formatCanvasSummary, type CanvasSummary } from "@/lib/ai/canvas-summary";
+import { validateDesignGraph } from "@/lib/ai/graph-validation";
 import {
   ANALYZE_SYSTEM_PROMPT,
   buildAnalyzeContext,
   buildGeneratePrompt,
   buildPlanPrompt,
+  buildRepairPrompt,
   GENERATE_SYSTEM_PROMPT,
   PLAN_SYSTEM_PROMPT,
 } from "@/lib/ai/prompts";
@@ -133,11 +136,15 @@ export function enforceDecision(analysis: TurnAnalysis, payload: DesignAgentPayl
   };
 }
 
-export async function analyzeTurn(model: LanguageModel, payload: DesignAgentPayload): Promise<TurnAnalysis> {
+export async function analyzeTurn(
+  model: LanguageModel,
+  payload: DesignAgentPayload,
+  canvas: CanvasSummary | null = null,
+): Promise<TurnAnalysis> {
   const { output } = await withSchemaRetry(() =>
     generateText({
       model,
-      system: `${ANALYZE_SYSTEM_PROMPT}\n\n${buildAnalyzeContext(payload)}`,
+      system: `${ANALYZE_SYSTEM_PROMPT}\n\n${buildAnalyzeContext(payload, formatCanvasSummary(canvas))}`,
       messages: toMessages(payload),
       output: Output.object({ schema: turnAnalysisSchema, name: "turn_analysis" }),
       providerOptions: thinking(model, "low"),
@@ -151,43 +158,108 @@ export async function analyzeTurn(model: LanguageModel, payload: DesignAgentPayl
   );
 }
 
+/** Parenthesised canvas refs such as "(ex-7)" or "(ex-2, ex-3)". */
+const CANVAS_REF_MENTION = /\s*\((?:\s*ex-\d+\s*,?)+\)/g;
+
+function withoutRefs(text: string): string {
+  return text.replace(CANVAS_REF_MENTION, "");
+}
+
+/**
+ * Removes canvas refs the model copies from the canvas summary into plan text.
+ * Refs are internal handles for connecting to existing components; the plan
+ * is shown to the user, who only knows components by name.
+ */
+export function removeCanvasRefs(plan: DesignPlan): DesignPlan {
+  return {
+    summary: withoutRefs(plan.summary),
+    components: plan.components.map((component) => ({
+      ...component,
+      responsibility: withoutRefs(component.responsibility),
+    })),
+    flows: plan.flows.map(withoutRefs),
+    decisions: plan.decisions.map((decision) => ({
+      ...decision,
+      choice: withoutRefs(decision.choice),
+      rationale: withoutRefs(decision.rationale),
+      alternatives: decision.alternatives.map(withoutRefs),
+    })),
+    assumptions: plan.assumptions.map(withoutRefs),
+  };
+}
+
 export async function draftPlan(
   model: LanguageModel,
   brief: DesignBrief,
   previousPlan: DesignPlan | null,
   latestInput: string,
+  canvas: CanvasSummary | null = null,
 ): Promise<DesignPlan> {
   const { output } = await withSchemaRetry(() =>
     generateText({
       model,
       system: PLAN_SYSTEM_PROMPT,
-      prompt: buildPlanPrompt(brief, previousPlan, latestInput),
+      prompt: buildPlanPrompt(brief, previousPlan, latestInput, formatCanvasSummary(canvas)),
       output: Output.object({ schema: designPlanSchema, name: "design_plan" }),
       providerOptions: thinking(model, "medium"),
       timeout: { totalMs: CALL_TIMEOUT_MS.plan },
     }),
   );
 
-  return clampPlan(output);
+  return removeCanvasRefs(clampPlan(output));
 }
 
-export async function generateDesignGraph(
-  model: LanguageModel,
-  brief: DesignBrief,
-  plan: DesignPlan,
-): Promise<DesignGraph> {
+export interface GeneratedDesign {
+  graph: DesignGraph;
+  /** Problems still present in `graph`; buildCanvasGraph drops what it cannot draw. */
+  issues: string[];
+  /** Problems found in the first attempt and sent back for repair, if a repair ran. */
+  repairedIssues: string[];
+}
+
+async function requestGraph(model: LanguageModel, prompt: string): Promise<DesignGraph> {
   const { output } = await withSchemaRetry(() =>
     generateText({
       model,
       system: GENERATE_SYSTEM_PROMPT,
-      prompt: buildGeneratePrompt(brief, plan),
+      prompt,
       output: Output.object({ schema: designGraphSchema, name: "design_graph" }),
       providerOptions: thinking(model, "low"),
       timeout: { totalMs: CALL_TIMEOUT_MS.generate },
     }),
   );
-
   return output;
+}
+
+/**
+ * Generates the diagram for an approved plan, validates it, and when anything
+ * is wrong asks the model once to fix exactly those problems. The attempt with
+ * fewer remaining problems wins; a failed repair call keeps the first attempt.
+ */
+export async function generateDesignGraph(
+  model: LanguageModel,
+  brief: DesignBrief,
+  plan: DesignPlan,
+  canvas: CanvasSummary | null = null,
+): Promise<GeneratedDesign> {
+  const prompt = buildGeneratePrompt(brief, plan, formatCanvasSummary(canvas));
+  const first = await requestGraph(model, prompt);
+  const firstIssues = validateDesignGraph(first, { canvas, plan });
+
+  if (firstIssues.length === 0) {
+    return { graph: first, issues: [], repairedIssues: [] };
+  }
+
+  try {
+    const repaired = await requestGraph(model, buildRepairPrompt(prompt, first, firstIssues));
+    const remaining = validateDesignGraph(repaired, { canvas, plan });
+    return remaining.length <= firstIssues.length
+      ? { graph: repaired, issues: remaining, repairedIssues: firstIssues }
+      : { graph: first, issues: firstIssues, repairedIssues: firstIssues };
+  } catch (error) {
+    console.warn("[design-agent] repair attempt failed; keeping the first diagram", error);
+    return { graph: first, issues: firstIssues, repairedIssues: [] };
+  }
 }
 
 /** An empty brief, for a generate turn that somehow has none stored. */

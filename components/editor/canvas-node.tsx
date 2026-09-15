@@ -20,7 +20,7 @@ import {
 } from "@xyflow/react";
 
 import { getUsedSides } from "@/lib/canvas-connections";
-import { resolveNodeFill, TEXT_NODE_SHAPE } from "@/types/canvas";
+import { resolveNodeFill, SHAPE_KICKERS, TEXT_NODE_SHAPE } from "@/types/canvas";
 import type { CanvasNodeData, CanvasNodeShape } from "@/types/canvas";
 
 // ---------------------------------------------------------------------------
@@ -92,16 +92,8 @@ const STROKE_WIDTH_ACTIVE = 2.5;
 const SHAPE_SHADOW_FILTER = "drop-shadow(var(--shadow-flat))";
 export const DEFAULT_NODE_FONT_SIZE = 11;
 
-/** Default mono kicker above the label, describing what the shape usually stands for. */
-export const SHAPE_KICKERS: Record<CanvasNodeShape, string> = {
-  rectangle: "Service",
-  circle:    "Event",
-  diamond:   "Decision",
-  pill:      "Queue",
-  cylinder:  "Database",
-  hexagon:   "External",
-  text:      "Note",
-};
+// Defined in `types/canvas.ts`; re-exported for the control bar, which imports it from here.
+export { SHAPE_KICKERS };
 
 // ---------------------------------------------------------------------------
 // Label block — mono kicker + Archivo label

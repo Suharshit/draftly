@@ -38,6 +38,20 @@ export const SHAPE_DEFAULTS: Record<CanvasNodeShape, { width: number; height: nu
   text:      { width: 160, height: 32 },
 };
 
+/**
+ * Default mono kicker above the label, describing what the shape usually stands for. Lives here
+ * (not in the node renderer) so server-side code can read it without importing React Flow.
+ */
+export const SHAPE_KICKERS: Record<CanvasNodeShape, string> = {
+  rectangle: "Service",
+  circle:    "Event",
+  diamond:   "Decision",
+  pill:      "Queue",
+  cylinder:  "Database",
+  hexagon:   "External",
+  text:      "Note",
+};
+
 // ---------------------------------------------------------------------------
 // Node color palette
 // ---------------------------------------------------------------------------
@@ -121,6 +135,32 @@ export function resolveNodeFill(color: string | undefined): NodeFill {
   if (direct) return direct;
   const legacy = NODE_COLOR_PALETTE.find((pair) => pair.bg === color);
   const fillId = legacy ? LEGACY_FILL_IDS[legacy.id] : "paper";
+  return NODE_FILLS.find((fill) => fill.id === fillId) ?? NODE_FILLS[0];
+}
+
+/**
+ * What a component does in the system. Its fill follows from the role, so starter templates and
+ * AI-generated designs colour components the same way:
+ *   entry     -> draft blue    clients, DNS, CDNs, load balancers, gateways
+ *   compute   -> paper         services, APIs, workers
+ *   messaging -> scrap coral   queues, topics, streams, brokers
+ *   data      -> marker amber  databases, caches, object storage
+ *   output    -> cut sage      external systems, consumers, delivery
+ */
+export const NODE_ROLES = ["entry", "compute", "messaging", "data", "output"] as const;
+
+export type NodeRole = (typeof NODE_ROLES)[number];
+
+export const NODE_ROLE_FILLS: Record<NodeRole, NodeFill["id"]> = {
+  entry: "blue",
+  compute: "paper",
+  messaging: "coral",
+  data: "amber",
+  output: "sage",
+};
+
+export function getRoleFill(role: NodeRole): NodeFill {
+  const fillId = NODE_ROLE_FILLS[role];
   return NODE_FILLS.find((fill) => fill.id === fillId) ?? NODE_FILLS[0];
 }
 

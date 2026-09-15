@@ -10,9 +10,14 @@ Update this file whenever the current phase, active feature, or implementation s
 
 - Persistent, multi-turn AI design sessions (plan: storage → wire sessions → turn engine → UI cards → generation
   quality → docs). Steps 1 (storage, PR #21), 2 (sessions in the sidebar, PR #22) and 3 (clarify → plan → generate
-  turn engine, PR #23) are done; step 4 (question/plan/result cards in the sidebar) is built on
-  `feat/ai-agent-cards` and awaiting a live run; next is step 5, generation quality (canvas context, kickers,
-  fills, edge styles, validate-and-repair).
+  turn engine, PR #23) and 4 (question/plan/result cards, PR #25) are done; step 5 (generation quality: canvas
+  context, roles and kickers, async edges, validate-and-repair, PR #26) and step 6 (docs, PR #27) are done.
+- Generate Spec (unit G1) was reviewed in PR #28 and merged into its stacked base (`feat/ai-sessions-docs`).
+- Repository note (2026-09-16): #25–#28 had been merged into stacked base branches instead of `main`, whose content
+  was exactly step 3 (squash commits of #21–#23). #29 (step 4, `feat/ai-design-turn-engine` → `main`) conflicted with
+  that squash history in 6 files; it was resolved with a merge commit that kept the branch content unchanged (no force
+  push) and merged. Steps 5–6, the spec feature, and this tracker then went to `main` through a sync PR built the same
+  way, so `main` holds all of the AI sessions and spec work.
 - After that: the Specs tab (Generate Spec + automatic Markdown download), which remains inert.
 
 ## Completed
@@ -1373,4 +1378,166 @@ Update this file whenever the current phase, active feature, or implementation s
       - DB turn checks (15) passed after the shared-reader refactor
       - Live flow on `gemini-3.5-flash-lite` through the Trigger worker passed (message → questions → skip → plan →
         generate; see the step 3 entry), including QUESTIONS and PLAN payloads that now store the agent's reply.
-    - Not yet verified: clicking through the cards in a signed-in browser (chips, typed answers, send, skip, draw).
+    - Browser check by the user (2026-09-16), both working: a detailed prompt with every question answered, and a
+      low-detail prompt that skipped the questions and generated a good design.
+- AI sessions, step 5: generation quality — canvas context, roles and kickers, async edges, validate and repair
+  (2026-09-16, branch `feat/ai-generation-quality`):
+    - Shared node roles: `types/canvas.ts` now has `NODE_ROLES` (entry, compute, messaging, data, output),
+      `NODE_ROLE_FILLS`, and `getRoleFill`, taken from the starter templates' private role map, which now uses them.
+      `SHAPE_KICKERS` moved here from `canvas-node.tsx` (re-exported there for the control bar) so server code can read
+      it without importing React Flow.
+    - `lib/ai/canvas-summary.ts`: `summarizeCanvas` turns the room into components with refs (`ex-1`…), kind (kicker or
+      the shape default), and used connection points; connections (label, async); and text notes. Capped at 60
+      components, 80 connections, 10 notes. `formatCanvasSummary` renders it for prompts.
+    - `lib/design-generation.ts`: the generation schema replaces the legacy dark `colorId` with `role` and `kicker`, and
+      edges gain `delivery: sync | async`. Edge endpoints may be a new node id or an existing ref. `buildCanvasGraph`
+      takes the existing canvas: refs resolve to existing node ids; a generated node that repeats an existing label is
+      not drawn and its edges attach to the existing node; repeated labels among new nodes fold into the first;
+      unknown endpoints, self loops, and repeated pairs (either direction) are dropped; fills come from the role; async
+      edges are dashed; connection points are assigned with existing edges counted. `MAX_GRAPH_NODES` /
+      `MAX_GRAPH_EDGES` are exported.
+    - `lib/ai/graph-validation.ts`: `validateDesignGraph` reports, in messages written for the model: over-limit counts,
+      duplicate ids, new ids shaped like refs, components already on the canvas, duplicate labels, unknown references,
+      self loops, repeated connections, components over 4 connections (existing ones included), unconnected new
+      components, and plan components missing from the diagram.
+    - `lib/ai/prompts.ts`: the canvas summary goes into analyze (treat requests as changes to the existing design),
+      plan (list only components to add, refer to existing ones by name), and generate (connect by ref, roles,
+      kickers, async delivery, every new component connected). New `buildRepairPrompt`.
+    - `lib/ai/design-agent-engine.ts`: `analyzeTurn`, `draftPlan`, and `generateDesignGraph` take the canvas summary.
+      `generateDesignGraph` validates the diagram and, when anything is wrong, makes one repair call with the issues
+      and the previous diagram, keeping whichever attempt has fewer issues (a failed repair keeps the first). It
+      returns `{ graph, issues, repairedIssues }`.
+    - `src/trigger/design-agent.ts`: reads the room read-only at the start of every turn and passes the summary to each
+      step. When writing, it uses the live room for layout and connection points and drops refs to components deleted
+      since the read. Repaired and remaining issues are logged. Comment updated: a turn makes at most three model calls.
+    - Validation checks:
+      - `pnpm typecheck` and `pnpm lint` passed
+      - Offline checks (36, no model calls): canvas summary (refs only for labelled drawn components, kinds, used points,
+        connections, notes, empty canvas, 60-component cap); every validation rule, including a clean graph with no
+        issues; `buildCanvasGraph` (existing duplicates and repeated labels not drawn, role fills, kickers, ref and
+        duplicate resolution, dropped unknown refs, self loops and repeated pairs, dashed async edges, handles on every
+        edge, new edges avoiding used sides, only an already-full node sharing a side, refs dropped without canvas
+        context); all 13 starter templates still on paper fills, entry still draft blue.
+      - Live extend run on `gemini-3.5-flash-lite` through the Trigger worker, on a throwaway room seeded with the
+        Microservices template (8 nodes, 8 edges): "Add a Redis cache in front of the user database, and a notification
+        service that consumes order events." → PLAN in 12.4s listing only the 3 new components (User Cache, Event
+        Broker, Notification Service) with 2 decisions → generate in 12.6s added 3 nodes (kickers Queue / Worker /
+        Cache, paper fills) and 4 edges: User Service → User Cache → User DB, and Order Service → Event Broker →
+        Notification Service, both order-event links dashed. Existing nodes untouched, no component redrawn, no
+        node forced to share a connection point, counts match the room. Test project, room, sessions, and TaskRuns
+        removed. 0 failures, 0 warnings.
+    - Follow-up from that run: the plan's flows read "User Service (ex-7) → User Cache → User DB (ex-8)" — the model
+      copied internal refs into user-facing plan text despite the prompt. `removeCanvasRefs` in
+      `design-agent-engine.ts` now strips parenthesised refs ("(ex-7)", "(ex-4, ex-5)") from the plan summary,
+      responsibilities, flows, decisions, and assumptions after drafting; other parentheses are left alone. Covered
+      by 3 more offline checks.
+- AI sessions, step 6: documentation refresh (2026-09-16, branch `feat/ai-sessions-docs`, docs only, no code):
+    - `docs.md` is listed in `.gitignore` (and has never been committed), so its refresh below stays in the local
+      working copy by decision; the branch commits `README.md` and the context files only.
+    - `docs.md`:
+      - AI category rewritten: **AI design sessions** (flow diagram, guide through the questions / plan / result
+        cards, stages, code-enforced rules, the Microservices extend example from the live run, error messages),
+        **How generation works** (turn steps with files, output contract with roles / kickers / delivery / refs,
+        validation checks, models, thinking, timeouts, retries), **Sessions & storage** (models, limits, settle on
+        read, cleanup cron), **Run tracking & tokens** (example now `useAiSession` + turns route), and **Spec
+        generation** (still planned; notes the stored plan decisions). The planned "AI sessions" page and "Diagram
+        from prompt" are gone; the sidebar nav matches.
+      - Getting started: goal 4, core user flow rows 5–6, and the worked example describe clarify → plan → draw.
+        Quickstart adds Vercel Cron / `CRON_SECRET`, the AI session migrations, and restarting the worker after a
+        model change.
+      - Reference: API routes (session and turns routes and the cleanup cron replace `/api/ai/design`), data models
+        (`AiSession`, `AiMessage`, `Project.aiSessions`), canvas types (`SHAPE_KICKERS`, fills, roles, edge colours,
+        text nodes, legacy palette), hooks (`useAiSession`), environment variables (`CRON_SECRET`, model notes).
+      - Contributing: spec index rows S1–S6 with their PRs; stack (`generateText` + `Output.object`, Vercel Cron),
+        `lib/ai/` boundary, storage table row for AI chats, invariant 6 widened and invariant 9 added; the stale note
+        about `project-overview.md` saying "filesystem" removed.
+      - Roadmap: AI design sessions and chat sessions are `BETA`; known issues replace the fixed ones (no run
+        timeout, conversation lost on reload, "filesystem" wording) with current ones (adds only, private sessions,
+        free-tier quota, preview-model timeouts); five new architecture decisions; a 2026-09-15 → 16 history row.
+    - `context/architecture-context.md`: new "AI Design Agent" section (turn = run, turn steps, code-enforced rules,
+      settle on read, reliability, model config) and invariants 5–9.
+    - `context/project-overview.md`: canvas snapshots are in Vercel Blob (was "filesystem"); AI section adds the
+      chat cards and canvas-aware generation, and notes it does not edit or remove existing components.
+    - `context/ui-context.md`: the AI sidebar session bar, saved-chat list, and chat cards follow the paper conventions.
+    - `README.md`: "AI design agent (local)" setup — API key and model, migrations, running and restarting the worker,
+      `CRON_SECRET` in production.
+    - Validation:
+      - A grep for stale references (`/api/ai/design` outside the token route, `useDesignAgent`, `generateObject`,
+        "Diagram from prompt", "lost on reload", "filesystem") across `docs.md`, `README.md`, and the context files
+        found one: the Collaboration → Thinking indicator paragraph, now describing AI turns and linking to
+        "AI design sessions". The only other match is the intended legacy-palette row in Canvas types.
+      - A check of every in-doc anchor link in `docs.md` against its headings: all resolve after that fix.
+      - Section order after the splice: Getting started, Platform, AI, Authentication, Design system, Reference,
+        Contributing, Roadmap.
+      - No code changed, so lint, typecheck, and build were not re-run.
+- Generate Spec, unit G1: Markdown technical spec from the canvas, with automatic download (2026-09-16, branch
+  `feat/generate-spec`, based on `feat/ai-sessions-docs` because GitHub `main` is missing #25 and #26):
+    - Data (migration `20260915195650_add_project_spec`, additive, applied): `TaskRunKind` enum (`DESIGN`, `SPEC`) and
+      `TaskRun.kind` (default `DESIGN`, so existing rows are design runs) with a `(projectId, kind, createdAt)` index;
+      `Project.specMdPath`, `specRunId`, `specGeneratedAt`, `specStats` (JSON).
+    - Shared refactors: `lib/ai/model.ts` (model id, thinking level/budget, `withSchemaRetry`, `modelIdOf`) moved out of
+      `design-agent-engine.ts`; `lib/ai/run-failure.ts` (`describeRunFailure` with generic, timeout and passthrough
+      messages) used by `session-turns.ts` and the spec store; `lib/canvas-room.ts` (`readRoomSnapshot`) used by both
+      tasks. No behaviour change for design turns.
+    - `lib/spec/spec-graph.ts`: `buildSpecGraph` — drawn, labelled components (cap 200, total kept), connections
+      between them (unknown endpoints and self loops dropped), groups of connected components via union-find in
+      reading order (`g1`…) plus a `standalone` group, component refs (`c1`…) in group then position order, kinds from
+      kicker or shape, and text notes attached to the nearest group within 600px (otherwise general notes).
+    - `lib/spec/mermaid.ts`: `renderGroupMermaid` — `flowchart TD`, one node per component with shape mapping (pill
+      `([ ])`, rectangle `[ ]`, cylinder `[( )]`, circle `(( ))`, diamond `{ }`, hexagon `{{ }}`), quoted labels with
+      `#`, `"`, `<`, `>`, `|` escaped, arrows for forward / backward (reversed) / bidirectional / none, dashed for
+      async and dotted edges, quoted edge labels.
+    - `lib/spec/spec-schema.ts`: model output schema (overview, goals, group name/purpose/flow, component
+      responsibilities, decisions with alternatives, trade-offs, component refs and source
+      `recorded | stated | inferred`, risks with mitigations, open questions); `sanitizeSpecContent` trims to list
+      limits, drops unknown groups/components/refs, and removes internal refs such as "(c1)" from prose (a live run
+      showed flow steps like "Web Client (c1) sends…"); run result and status types; stage names; abort messages.
+    - `lib/spec/spec-prompt.ts` + `spec-engine.ts`: one `generateText` + `Output.object` call with medium thinking, a
+      180s timeout, and one schema retry. The prompt lists groups, refs, connections (direction, label, sync/async),
+      notes, and recorded decisions, and asks for 3–6 decisions from the diagram in addition to recorded ones (the
+      first live run returned only the recorded decision).
+    - `lib/spec/render-markdown.ts`: title and generation line, contents, 1 Overview (goals, general notes), 2 Key
+      decisions as `> [!IMPORTANT]` callouts (why, alternatives, trade-offs, components, source), 3 System diagrams
+      (per group: purpose, Mermaid, component table, flow, notes; "Standalone components"), 4 Component reference
+      (kind, diagram, responsibility, receives from / sends to / connected to), 5 Connections table, 6 Risks table and
+      open-question checklist, footer with model and time. Table cells escape pipes; fallbacks when prose is missing.
+    - `src/trigger/spec-agent.ts`: reads the room, aborts with a user-facing message on an empty canvas or more than 200
+      components, generates the prose, renders, returns `{ markdown, stats }`. Single attempt, `maxDuration` 300s,
+      stages `reading` → `writing` → `rendering` → `done`.
+    - `lib/spec/spec-store.ts` (Trigger and Blob injectable for tests): `getSpecStatus` stores the latest finished SPEC
+      run on read (upload to private Blob, update guarded on `specRunId`, delete the duplicate or previous blob) and
+      reports pending runs and friendly failures; `loadRecordedDecisions` (the user's unexpired completed RESULT
+      messages, newest first, one per title, max 12); `startSpecRun` (409 with the pending run, trigger, `TaskRun` kind
+      SPEC); `readSpecMarkdown`.
+    - Routes: `GET`/`POST /api/projects/[projectId]/spec` (status; start → 202 / 409 / 502) and
+      `GET /api/projects/[projectId]/spec/markdown` (attachment `{project-slug}-spec.md`, via
+      `lib/spec/spec-file-name.ts` because route files may only export handlers). Owner or collaborator access.
+    - `hooks/use-spec-generator.ts` (mounted in `AiSidebar` so a run is followed while another tab is open): loads the
+      status, starts runs (409 follows the existing run), Realtime stages via the existing token route plus 4s
+      polling, and downloads automatically when the run the user started is stored.
+    - `components/editor/spec-panel.tsx`: description, Generate / Regenerate button with spinner and stage text, error
+      alert, latest-spec card (generated time, counts, **Download .md** link), empty and loading states. Replaces the
+      placeholder Specs tab in `ai-sidebar.tsx`.
+    - Context: `project-overview.md` Spec Generation describes the built behaviour; `architecture-context.md` gains a
+      Spec Agent section and invariant 6 covers both tasks; `ui-context.md` lists the Specs tab. `docs.md` (local,
+      gitignored) Spec generation page, reference tables, roadmap, decisions, and history updated.
+    - Validation checks:
+      - `pnpm typecheck` and `pnpm lint` passed (after `next typegen` for the new routes)
+      - Offline spec checks (60, no model or DB): grouping, refs, kinds, dropped edges, note placement, 200 cap; Mermaid
+        shapes, arrows, escaping; sanitising and limits; Markdown sections, callouts, tables, directions, notes,
+        fallbacks, pipe escaping; prompt text; file names; all 13 starter templates rendered with a stub spec (one
+        diagram per group, every component referenced, Mermaid line counts match)
+      - Ref stripping checks (10): refs removed from every prose field, paragraph breaks kept, other parentheses kept
+      - Spec store checks against the database with fake Trigger/Blob (22): empty, design runs ignored, pending, quota /
+        abort / unknown / missing failures, invalid output rejected before upload, stored once with finish time and
+        stats, not re-retrieved, failed newer run keeps the old spec, concurrent reads store once and delete the
+        duplicate and previous blobs, recorded decisions deduplicated and scoped to the user's unexpired completed
+        results
+      - Live runs through the local Trigger worker on `gemini-3.5-flash-lite` with the Microservices template and a
+        recorded decision (throwaway project, room, session, and blob removed): 202 → 409 for a second start → stored in
+        about 11s with stats 8 / 8 / 1; Markdown in Blob with all sections, one Mermaid diagram, every component, the
+        recorded decision tagged "Recorded during AI design". After the prompt change the second run also inferred an
+        "API Gateway Entry Point" decision (2 decisions, 0 warnings).
+      - Signed-out requests to the three spec routes are stopped by Clerk (307).
+    - Not yet verified: the Specs tab in a signed-in browser (button, stages, auto-download, Download link), Mermaid
+      rendering on GitHub, and the ref-stripping fix in a live run.

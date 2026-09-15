@@ -21,6 +21,18 @@ curl -X POST http://localhost:3000/api/trigger/hello \
 
 Task source files live in `src/trigger/` and Trigger.dev config is in `trigger.config.ts`.
 
+## AI design agent (local)
+
+1. Set `GOOGLE_GENERATIVE_AI_API_KEY` in `.env.local`, and optionally `GOOGLE_GENERATIVE_AI_MODEL`
+   (default `gemini-3.5-flash`; Gemini 2.x and 3.x models both work).
+2. Run `pnpm prisma migrate dev` so the `AiSession` and `AiMessage` tables exist.
+3. Run `pnpm dev` and `pnpm trigger:dev` together. The worker reads `.env.local` only when it starts, so restart it
+   after changing the model or any key.
+4. In production, set `CRON_SECRET` in the Vercel project so the daily AI session cleanup in `vercel.json` can
+   authenticate.
+
+`docs.md` → **AI** explains sessions, turns, and how generation works.
+
 ## Getting Started
 
 First, run the development server:

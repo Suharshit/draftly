@@ -974,3 +974,22 @@ Update this file whenever the current phase, active feature, or implementation s
       so sign-in returns them straight to the editor home.
     - `/` already redirected signed-in users to `/editor`; unchanged. `/dashboard` still exists as a placeholder
       but nothing links to it now.
+- Restyled the editor chrome to the editor shell wireframe (2026-09-15, `components/editor/`):
+    - `EditorNavbar` now serves both states. Cream bar (h-16) with an ink sidebar toggle, "Draftly / No project
+      open" or "Draftly / {project name}", a mono status (READY, or SAVING… / SAVED / SAVE FAILED / VIEW ONLY),
+      an outline Share button (disabled with no project), the AI toggle when a project is open, and Clerk's
+      `UserButton` (still in the navbar). `EditorWorkspaceShell` uses it in place of its inline header.
+    - `ProjectSidebar` is docked on md+ (pushes content, collapses to 0 width) and an overlay below md. Ink
+      "New project" button, project search, RECENT (3 most recently updated across owned + shared), ALL PROJECTS,
+      SHARED WITH YOU, mono relative times (2h / 1d / 1w / 1mo), hover/focus rename + delete for owned projects,
+      and a footer with the signed-in user's initials, name and project count. Tabs removed.
+    - `EditorShell` (editor home): sidebar open by default, small connected-boxes mark, heading, "New project"
+      and "Open recent" (links to the most recently updated project; disabled when there are none), and an
+      "or press N" hint. Plain N opens the create dialog (Ctrl/⌘+N is reserved by browsers).
+    - `SidebarProject` gained `updatedAt` (ISO string); sidebar lists are ordered by `updatedAt desc`.
+    - Still dark: canvas, AI sidebar, canvas control bar, project dialogs, share dialog. `CanvasControlBar` still
+      hides when the sidebar is open with nothing selected; with a docked sidebar that is no longer needed.
+    - `pnpm typecheck` and `pnpm lint` pass. Not checked in a browser.
+- Fixed long project names running under the rename/delete buttons in `ProjectSidebar` (2026-09-15):
+    - On hover or keyboard focus of an owned row, the time is removed, the link reserves right padding for the
+      buttons, and the name's ellipsis is replaced by a 2rem fade (CSS mask). Otherwise the name shows as before.

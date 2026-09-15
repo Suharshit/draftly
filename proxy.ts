@@ -23,6 +23,8 @@ const isPublicRoute = createRouteMatcher([
   `${signUpPath}(.*)`,
   "/docs",
   "/docs(.*)",
+  // Invoked by Vercel Cron without a Clerk session; each handler checks CRON_SECRET.
+  "/api/cron(.*)",
 ]);
 
 export default clerkMiddleware(

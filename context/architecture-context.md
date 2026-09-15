@@ -28,6 +28,26 @@
   removed by a daily Vercel Cron (`/api/cron/ai-sessions/cleanup`, `CRON_SECRET`). Reads ignore expired rows, so
   expiry holds even before cleanup runs. Deleting a project cascades to its sessions.
 
+## AI Design Agent
+
+- **One turn = one Trigger.dev run** (`design-agent`). Routes validate input and access, trigger the run, and
+  return `202`; they never call the model.
+- **A turn** reads the Liveblocks room read-only and summarises it (`lib/ai/canvas-summary.ts`), then analyzes the
+  message (updates the requirements brief and decides ask / plan / generate), drafts or revises a plan, or
+  generates the diagram for the approved plan, validates it (`lib/ai/graph-validation.ts`), makes at most one repair
+  call, and writes it with `mutateFlow`.
+- **Code enforces the rules** the model is asked to follow (question rounds, skip, no generating without a plan) and
+  fills in everything render-related: node and edge types, sizes, fills from `NODE_ROLES`, dashed async edges,
+  connection points, and layout. Existing components are referenced by `ex-N` refs; generated duplicates fold into
+  existing nodes.
+- **Turns settle on read.** The turns route stores a `PENDING` reply with the run id; reading the session retrieves
+  the run, validates its output with zod, and stores `QUESTIONS`, `PLAN`, or `RESULT`. The task has no database
+  access and never writes blobs.
+- **Reliability:** per-call timeouts (analyze 90s, plan 150s, generate 120s), task `maxDuration` 300s, a single task
+  attempt, one retry per call on a schema mismatch, list limits trimmed in code instead of `maxItems`, and friendly
+  failure messages with raw provider errors kept in server logs.
+- **Model:** `GOOGLE_GENERATIVE_AI_MODEL`, with a thinking level (Gemini 3+) or thinking budget (Gemini 2.x) per step.
+
 ## Auth and Access Model
 
 - Every user signs in via Clerk to establish identity.
@@ -40,4 +60,9 @@
 2. Metadata belongs in the database; large assets must be offloaded to blob/file storage.
 3. API routes must validate authentication and resource ownership before any mutation.
 4. Foundation components (`components/ui/*`) must remain generic and default.
+5. Generated canvas content reaches clients only through Liveblocks, never through an HTTP response.
+6. The design task never writes to the database or blob storage; the session routes store AI turns.
+7. A project's id is its Liveblocks room id.
+8. Run tokens are minted only by `POST /api/ai/design/token`, after a `TaskRun` ownership check.
+9. Model output is validated (zod) before it is stored or drawn.
 

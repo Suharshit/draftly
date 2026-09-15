@@ -39,7 +39,7 @@ Ghost AI is a real-time collaborative system design workspace. Users describe a 
 
 - Shared real-time canvas using Liveblocks and React Flow.
 - Live cursors, presence indicators, and node/edge editing.
-- Canvas snapshots persisted to the filesystem.
+- Canvas snapshots persisted to blob storage (Vercel Blob).
 
 ### Starter System Designs
 
@@ -58,6 +58,11 @@ Ghost AI is a real-time collaborative system design workspace. Users describe a 
     that the user approves or asks to revise before anything is drawn.
 - AI chat sessions are saved per user per project for 7 days after last use, so a conversation and an in-flight
   generation survive a reload.
+- The AI sidebar shows clarifying questions (suggested answers, skip), plans (key decisions highlighted, draw
+  button), and results as interactive cards.
+- Follow-up requests see the current canvas: the AI adds only new components, connected to the existing ones,
+  using the starter templates' conventions (role-based paper fills, kickers, dashed async links), and checks the
+  diagram with one repair attempt before drawing. It does not edit or remove existing components.
 
 ### Spec Generation
 

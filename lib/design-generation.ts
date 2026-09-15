@@ -36,8 +36,12 @@ import {
 /** Metadata key carrying the current {@link DesignAgentStage}. */
 export const DESIGN_AGENT_STAGE_KEY = "stage";
 
-/** Progress stages a design run moves through, in order. */
-export const DESIGN_AGENT_STAGES = ["generating", "writing", "done"] as const;
+/**
+ * Progress stages a design run can report. A turn starts at `analyzing`, then
+ * either finishes (questions), goes through `planning`, or — once a plan is
+ * approved — through `generating` and `writing`.
+ */
+export const DESIGN_AGENT_STAGES = ["analyzing", "planning", "generating", "writing", "done"] as const;
 
 export type DesignAgentStage = (typeof DESIGN_AGENT_STAGES)[number];
 
@@ -90,9 +94,11 @@ export const designEdgeSchema = z.object({
 });
 
 /** The full structured output requested from the model. */
+// The limits are stated, not enforced as maxItems: models don't reliably honour
+// them, and one extra item would fail the run. buildCanvasGraph trims instead.
 export const designGraphSchema = z.object({
-  nodes: z.array(designNodeSchema).min(1).max(MAX_NODES),
-  edges: z.array(designEdgeSchema).max(MAX_EDGES),
+  nodes: z.array(designNodeSchema).min(1).describe(`At most ${MAX_NODES} components.`),
+  edges: z.array(designEdgeSchema).describe(`At most ${MAX_EDGES} connections.`),
 });
 
 export type DesignGraph = z.infer<typeof designGraphSchema>;
@@ -196,13 +202,15 @@ export function buildCanvasGraph(
   { idPrefix, origin = { x: 0, y: 0 } }: BuildCanvasGraphOptions,
 ): { nodes: CanvasNode[]; edges: CanvasEdge[] } {
   const seenNodeIds = new Set<string>();
-  const uniqueNodes = design.nodes.filter((node) => {
-    if (seenNodeIds.has(node.id)) {
-      return false;
-    }
-    seenNodeIds.add(node.id);
-    return true;
-  });
+  const uniqueNodes = design.nodes
+    .filter((node) => {
+      if (seenNodeIds.has(node.id)) {
+        return false;
+      }
+      seenNodeIds.add(node.id);
+      return true;
+    })
+    .slice(0, MAX_NODES);
 
   const cells = assignGridCells(uniqueNodes);
   const canvasNodeIds = new Map<string, string>();
@@ -240,6 +248,9 @@ export function buildCanvasGraph(
   const edges: CanvasEdge[] = [];
 
   for (const edge of design.edges) {
+    if (edges.length >= MAX_EDGES) {
+      break;
+    }
     const source = canvasNodeIds.get(edge.source);
     const target = canvasNodeIds.get(edge.target);
     if (!source || !target || source === target) {

@@ -1,48 +1,26 @@
-import { google } from "@ai-sdk/google";
 import { mutateFlow } from "@liveblocks/react-flow/node";
 import { logger, metadata, task } from "@trigger.dev/sdk/v3";
-import { generateObject } from "ai";
+import type { LanguageModel } from "ai";
 
+import type { DesignAgentPayload, DesignAgentResult, DesignBrief, DesignPlan } from "@/lib/ai/agent-schema";
 import {
-  buildCanvasGraph,
-  designGraphSchema,
-  DESIGN_AGENT_STAGE_KEY,
-  type DesignAgentStage,
-} from "@/lib/design-generation";
+  analyzeTurn,
+  draftPlan,
+  emptyBrief,
+  generateDesignGraph,
+  resolveDesignModel,
+} from "@/lib/ai/design-agent-engine";
+import { buildCanvasGraph, DESIGN_AGENT_STAGE_KEY, type DesignAgentStage } from "@/lib/design-generation";
 import { getLiveblocksClient } from "@/lib/liveblocks";
 import { SHAPE_DEFAULTS, type CanvasEdge, type CanvasNode, type CanvasShape } from "@/types/canvas";
 
-export interface DesignAgentPayload {
-  prompt: string;
-  roomId: string;
-}
-
-export interface DesignAgentResult {
-  nodeCount: number;
-  edgeCount: number;
-}
+export type { DesignAgentPayload, DesignAgentResult };
 
 /** Vertical gap left between existing canvas content and a newly generated graph. */
 const EXISTING_CONTENT_GAP = 140;
 
-const DEFAULT_MODEL_ID = "gemini-3.5-flash";
-
-const SYSTEM_PROMPT = [
-  "You are a system design architect. Turn the user's description into a component diagram.",
-  "Return only components that belong on an architecture diagram: clients, gateways, services,",
-  "queues, caches, datastores, and external systems. Give every component a short, concrete",
-  "label. Connect components in the direction traffic actually flows, and label a connection",
-  "only when the protocol or payload is not obvious from the two components it joins.",
-  "Lay the diagram out top to bottom: entry points at the lowest y values, datastores at the",
-  "highest. Components that sit at the same level of the request path share a y value.",
-  "Every component has four connection points (top, right, bottom, left) and each point takes",
-  "one connection, so give each component at most four connections in total.",
-  "Prefer a focused diagram of the components that matter over an exhaustive one.",
-].join(" ");
-
-function resolveModelId(): string {
-  const configured = process.env.GOOGLE_GENERATIVE_AI_MODEL?.trim();
-  return configured && configured.length > 0 ? configured : DEFAULT_MODEL_ID;
+function setStage(stage: DesignAgentStage) {
+  metadata.set(DESIGN_AGENT_STAGE_KEY, stage);
 }
 
 function getNodeHeight(node: CanvasNode): number {
@@ -75,51 +53,89 @@ function resolveOrigin(existingNodes: readonly CanvasNode[]): { x: number; y: nu
   return { x: left, y: bottom + EXISTING_CONTENT_GAP };
 }
 
+/** Generates the diagram for an approved plan and writes it into the room. */
+async function drawPlan(
+  model: LanguageModel,
+  roomId: string,
+  runId: string,
+  brief: DesignBrief,
+  plan: DesignPlan,
+): Promise<{ nodeCount: number; edgeCount: number }> {
+  setStage("generating");
+  const design = await generateDesignGraph(model, brief, plan);
+  logger.log("Design generated", { nodeCount: design.nodes.length, edgeCount: design.edges.length });
+
+  setStage("writing");
+  let counts = { nodeCount: 0, edgeCount: 0 };
+
+  await mutateFlow<CanvasNode, CanvasEdge>({ client: getLiveblocksClient(), roomId }, (flow) => {
+    const { nodes, edges } = buildCanvasGraph(design, {
+      idPrefix: runId,
+      origin: resolveOrigin(flow.nodes),
+    });
+
+    flow.addNodes(nodes);
+    flow.addEdges(edges);
+
+    counts = { nodeCount: nodes.length, edgeCount: edges.length };
+  });
+
+  logger.log("Design written to room", { roomId, ...counts });
+  return counts;
+}
+
+/**
+ * One turn of a design session. Reads the user's turn, then either asks
+ * clarifying questions, proposes (or revises) a plan, or draws the approved
+ * plan on the canvas. The server stores the returned result on the session.
+ */
 export const designAgentTask = task({
   id: "design-agent",
+  // Each model call already retries transient errors with backoff. Retrying the
+  // whole turn on top multiplied quota use (up to 9 calls per failure) and could
+  // write a generated diagram twice; a failed turn is shown to the user instead.
+  retry: { maxAttempts: 1 },
+  // A turn makes at most two model calls, each bounded by its own timeout; this
+  // is the backstop so a stuck turn fails and settles instead of staying pending.
+  maxDuration: 300,
   run: async (payload: DesignAgentPayload, { ctx }): Promise<DesignAgentResult> => {
-    logger.log("Design agent task triggered", { roomId: payload.roomId });
+    logger.log("Design agent turn", { roomId: payload.roomId, intent: payload.intent });
+    const model = resolveDesignModel();
 
-    metadata.set(DESIGN_AGENT_STAGE_KEY, "generating" satisfies DesignAgentStage);
+    // An explicit approval skips analysis: the plan is already agreed.
+    if (payload.intent === "generate" && payload.plan) {
+      const brief = payload.brief ?? emptyBrief();
+      const counts = await drawPlan(model, payload.roomId, ctx.run.id, brief, payload.plan);
+      setStage("done");
+      return { action: "generated", reply: "", ...counts, decisions: payload.plan.decisions, brief };
+    }
 
-    const { object: design } = await generateObject({
-      model: google(resolveModelId()),
-      schema: designGraphSchema,
-      system: SYSTEM_PROMPT,
-      prompt: payload.prompt,
-    });
+    setStage("analyzing");
+    const analysis = await analyzeTurn(model, payload);
+    logger.log("Turn analyzed", { decision: analysis.decision, questions: analysis.questions.length });
 
-    logger.log("Design generated", {
-      nodeCount: design.nodes.length,
-      edgeCount: design.edges.length,
-    });
+    if (analysis.decision === "ask") {
+      setStage("done");
+      return { action: "ask", reply: analysis.reply, questions: analysis.questions, brief: analysis.brief };
+    }
 
-    metadata.set(DESIGN_AGENT_STAGE_KEY, "writing" satisfies DesignAgentStage);
+    if (analysis.decision === "generate" && payload.plan) {
+      const counts = await drawPlan(model, payload.roomId, ctx.run.id, analysis.brief, payload.plan);
+      setStage("done");
+      return {
+        action: "generated",
+        reply: analysis.reply,
+        ...counts,
+        decisions: payload.plan.decisions,
+        brief: analysis.brief,
+      };
+    }
 
-    const client = getLiveblocksClient();
-    let result: DesignAgentResult = { nodeCount: 0, edgeCount: 0 };
+    setStage("planning");
+    const plan = await draftPlan(model, analysis.brief, payload.plan, payload.input);
+    logger.log("Plan drafted", { components: plan.components.length, decisions: plan.decisions.length });
 
-    await mutateFlow<CanvasNode, CanvasEdge>(
-      { client, roomId: payload.roomId },
-      (flow) => {
-        const { nodes, edges } = buildCanvasGraph(design, {
-          idPrefix: ctx.run.id,
-          origin: resolveOrigin(flow.nodes),
-        });
-
-        flow.addNodes(nodes);
-        flow.addEdges(edges);
-
-        result = { nodeCount: nodes.length, edgeCount: edges.length };
-      },
-    );
-
-    metadata.set(DESIGN_AGENT_STAGE_KEY, "done" satisfies DesignAgentStage);
-    metadata.set("nodeCount", result.nodeCount);
-    metadata.set("edgeCount", result.edgeCount);
-
-    logger.log("Design written to room", { roomId: payload.roomId, ...result });
-
-    return result;
+    setStage("done");
+    return { action: "plan", reply: analysis.reply, plan, brief: analysis.brief };
   },
 });

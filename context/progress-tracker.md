@@ -9,7 +9,8 @@ Update this file whenever the current phase, active feature, or implementation s
 ## Current Goal
 
 - Persistent, multi-turn AI design sessions (plan: storage → wire sessions → turn engine → UI cards → generation
-  quality → docs). Step 1 (storage) is done; next is step 2, wiring the existing generation to stored sessions.
+  quality → docs). Steps 1 (storage, PR #21) and 2 (sessions wired into the sidebar) are done; next is step 3,
+  the clarify → plan → generate turn engine in the design-agent task.
 - After that: the Specs tab (Generate Spec + automatic Markdown download), which remains inert.
 
 ## Completed
@@ -1195,3 +1196,51 @@ Update this file whenever the current phase, active feature, or implementation s
         to sign-in) before the handler; the cron route is reachable and returns 401 JSON with no or a wrong bearer.
     - Not yet exercised: the session routes over HTTP with a signed-in user, and the cron route with the correct
       secret (the dev server had no `CRON_SECRET`).
+- AI sessions, step 2: the AI Architect chat runs on stored sessions (2026-09-15, branch `feat/ai-sessions-wiring`):
+    - Generation is still one-shot (one prompt → one design run); only persistence and resume changed.
+    - `lib/ai/session-limits.ts`: the limit constants moved out of `session-store.ts` (which re-exports them) so client
+      code can import them without pulling in Prisma. Added `AI_SESSION_TTL_DAYS`.
+    - `lib/ai/session-turns.ts`:
+      - `startTurn(scope, sessionId, text)`: settles finished turns, rejects with 409 while a reply is pending or when
+        the chat would pass 60 messages, triggers `design-agent`, then in one transaction stores the USER message and
+        a PENDING assistant message with the run id (explicit `createdAt` so the reply sorts after the prompt), a
+        `TaskRun` row, the session's sliding `lastActivityAt`/`expiresAt`, phase `GENERATING`, and the first prompt as
+        title. If the trigger fails, the prompt is still stored with a FAILED error reply and the result is 502.
+      - `getSettledSession`: before returning a session, settles each PENDING message from `runs.retrieve` — success →
+        `RESULT` (`payload: { nodeCount, edgeCount }`, phase `COMPLETE`); failed/cancelled or a 404 run → `ERROR`
+        (phase `CLARIFYING`); still running or Trigger unreachable → stays pending. The write is guarded on
+        `status: PENDING`, so concurrent reads settle once, and every reader re-reads once the run is final.
+      - Settling on read means a reply is saved even when the tab closed mid-run; the task still has no DB access.
+    - Routes:
+      - New `POST /api/projects/[projectId]/ai-sessions/[sessionId]/turns` with `{ type: "message", text }` (1–4,000
+        chars): 202 `{ session }`, 502 `{ error, session }`, 400/401/403/404/409 `{ error }`.
+      - `GET .../ai-sessions/[sessionId]` now returns the settled session.
+      - Removed `POST /api/ai/design` (replaced by the turns route). `POST /api/ai/design/token` is unchanged and still
+        authorises by `TaskRun`.
+    - `hooks/use-ai-session.ts` replaces `hooks/use-design-agent.ts` (deleted):
+      - Lists sessions on mount and reopens the chat last open in this browser (`draftly:ai-session:{projectId}` in
+        localStorage), else the most recent.
+      - A new chat is stored lazily: the first message creates the session (titled from the prompt), then sends the
+        turn. The prompt shows optimistically until the server transcript returns.
+      - While a reply is PENDING it mints a run token and subscribes with `useRealtimeRun` for the stage line and an
+        early refresh when the run ends, and re-reads the session every 4s as the guaranteed path (covers a lost
+        subscription or token failure). Async responses are dropped if the user switched chats meanwhile.
+      - Request failures show as a local (unsaved) error message. The `thinking` presence flag works as before.
+    - `components/editor/ai-session-history.tsx`: saved chats list (title, relative last activity, "expires in Nd",
+      delete), count out of 10, and a "kept for 7 days" note.
+    - `ai-sidebar.tsx`: session bar under the tabs (history toggle showing the current title, "New chat"), history list
+      in place of the transcript when open, "Loading chat…" and a retryable load error, `whitespace-pre-wrap` bubbles,
+      and scrolling to the latest message. Specs tab unchanged.
+    - `lib/relative-time.ts`: `formatRelativeTime` extracted from `project-sidebar.tsx`, now shared.
+    - Validation checks:
+      - `pnpm typecheck` and `pnpm lint` passed (after `next typegen` cleared the removed route from `.next/types`)
+      - tsx script against the database: a missing run settles FAILED with an explanation; concurrent settles agree;
+        failure resets phase; a full chat and an unknown session are rejected; a pending turn that can't be settled
+        blocks a new turn (409); a trigger failure returns 502 with the prompt stored before a FAILED reply, the title
+        taken from the prompt, activity/expiry moved forward, and no `TaskRun`
+      - End-to-end through the local `trigger dev` worker on a throwaway project + Liveblocks room: 202 with a PENDING
+        reply, `TaskRun` recorded, 409 for a second message, then settled via `runs.retrieve` as RESULT "Added 3
+        components and 2 connections to the canvas." with phase `COMPLETE`; re-reading changed nothing. Test project,
+        room, sessions and `TaskRun` removed.
+      - Signed-out requests to the turns and session routes are stopped by Clerk.
+    - Not checked in a browser (sidebar UI, reload resume, history switching and deleting, Realtime stage line).

@@ -1004,3 +1004,20 @@ Update this file whenever the current phase, active feature, or implementation s
     - Composer: ink-bordered textarea, mono "Enter to send · Shift+Enter new line" hint, square ink send button
       with an arrow. Specs tab restyled but still inert.
     - Behaviour and `useDesignAgent` wiring unchanged. Canvas and navbar untouched.
+- Fixed and restyled the canvas `ShapePanel` (2026-09-15, `components/editor/shape-panel.tsx` only):
+    - It was `absolute` inside the canvas section, so it re-centred whenever the docked project sidebar opened or
+      closed. It is now `fixed` to the viewport (bottom 24px, horizontally centred), so it stays put. No ancestor has
+      a transform, so `fixed` resolves against the viewport.
+    - New look from the shape panel wireframe: one paper-bright bar with an ink border and flat shadow, 2px corners,
+      cells split by ink hairlines, Archivo labels, the active mode (Select / Pan) as an ink cell with cream text
+      (`aria-pressed`). Same lucide icons; the Select/Pan divider is gone.
+    - Drag-to-canvas, the ghost preview, mode switching and the canvas itself are unchanged.
+- Restyled `CanvasControlBar` to the control bar wireframe (2026-09-15, `components/editor/canvas-control-bar.tsx` only):
+    - Inline dark styles replaced with brand-token Tailwind classes, matching the shape panel: paper-bright bar,
+      ink border, flat shadow, 2px corners. Bottom row is a segmented bar of 36px cells split by ink hairlines
+      (the old gap dividers are gone); delete tints pin-red on hover; disabled undo/redo fade to 35%.
+    - Node/edge formatting panel sits above the bar with a hairline: mono uppercase labels (Fill, Stroke, Arrow,
+      Type, Edge), round swatches with an ink ring when active, arrow/line-style chips that fill ink when active,
+      and a segmented B / I / − size + group. Toggles now expose `aria-pressed`.
+    - All handlers, conditions (including hiding when the project sidebar is open with nothing selected), icons,
+      position and node/edge data values are unchanged. No backend changes.

@@ -15,6 +15,7 @@ import {
 import { useCanRedo, useCanUndo, useRedo, useUndo } from "@liveblocks/react";
 import { useEdges, useNodes, useReactFlow } from "@xyflow/react";
 
+import { cn } from "@/lib/utils";
 import { NODE_COLOR_PALETTE } from "@/types/canvas";
 import type { CanvasEdge, CanvasNode } from "@/types/canvas";
 
@@ -37,6 +38,8 @@ const EDGE_STYLE_BUTTONS: { label: string; value: "solid" | "dashed" | "dotted";
   { label: "Dashed", value: "dashed", symbol: "- -" },
   { label: "Dotted", value: "dotted", symbol: ". ." },
 ];
+
+const focusClass = "outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink/60";
 
 export function CanvasControlBar({
   onOpenTemplates,
@@ -85,323 +88,245 @@ export function CanvasControlBar({
   const canShowFormatting = hasSingleSelection;
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        bottom: 24,
-        left: 24,
-        zIndex: 10,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "stretch",
-        gap: 8,
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border-default)",
-        borderRadius: 12,
-        boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
-        padding: "8px",
-      }}
-    >
+    <div className="absolute bottom-6 left-6 z-10 flex flex-col rounded-paper border border-ink bg-paper-bright text-ink shadow-flat scheme-light">
       {canShowFormatting && selectedNode ? (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", width: "100%", gap: 8 }}>
+        <div className="flex flex-col gap-2.5 border-b border-ink/15 p-3">
           {/* Fill Color */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <TextLabel>Fill</TextLabel>
-            <div style={{ display: "flex", gap: 4 }}>
-              {NODE_COLOR_PALETTE.map((pair) => (
-                <ColorButton
-                  key={`fill-${pair.id}`}
-                  color={pair.bg}
-                  active={(selectedNode.data.color ?? NODE_COLOR_PALETTE[0].bg) === pair.bg}
-                  onClick={() => {
-                    setNodes((nodes) =>
-                      nodes.map((node) =>
-                        node.id === selectedNode.id
-                          ? { ...node, data: { ...node.data, color: pair.bg, textColor: pair.text } }
-                          : node,
-                      ),
-                    );
-                  }}
-                />
-              ))}
-            </div>
-          </div>
+          <FormatRow label="Fill">
+            {NODE_COLOR_PALETTE.map((pair) => (
+              <ColorButton
+                key={`fill-${pair.id}`}
+                color={pair.bg}
+                active={(selectedNode.data.color ?? NODE_COLOR_PALETTE[0].bg) === pair.bg}
+                onClick={() => {
+                  setNodes((nodes) =>
+                    nodes.map((node) =>
+                      node.id === selectedNode.id
+                        ? { ...node, data: { ...node.data, color: pair.bg, textColor: pair.text } }
+                        : node,
+                    ),
+                  );
+                }}
+              />
+            ))}
+          </FormatRow>
 
           <HorizontalDivider />
 
           {/* Stroke Color */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <TextLabel>Stroke</TextLabel>
-            <div style={{ display: "flex", gap: 4 }}>
-              {NODE_COLOR_PALETTE.map((pair) => (
-                <ColorButton
-                  key={`stroke-${pair.id}`}
-                  color={pair.text}
-                  active={(selectedNode.data.strokeColor ?? "var(--border-default)") === pair.text}
-                  onClick={() => {
-                    setNodes((nodes) =>
-                      nodes.map((node) =>
-                        node.id === selectedNode.id
-                          ? { ...node, data: { ...node.data, strokeColor: pair.text, textColor: pair.text } }
-                          : node,
-                      ),
-                    );
-                  }}
-                />
-              ))}
-            </div>
-          </div>
+          <FormatRow label="Stroke">
+            {NODE_COLOR_PALETTE.map((pair) => (
+              <ColorButton
+                key={`stroke-${pair.id}`}
+                color={pair.text}
+                active={(selectedNode.data.strokeColor ?? "var(--border-default)") === pair.text}
+                onClick={() => {
+                  setNodes((nodes) =>
+                    nodes.map((node) =>
+                      node.id === selectedNode.id
+                        ? { ...node, data: { ...node.data, strokeColor: pair.text, textColor: pair.text } }
+                        : node,
+                    ),
+                  );
+                }}
+              />
+            ))}
+          </FormatRow>
 
           <HorizontalDivider />
 
-          <div style={{ display: "flex", justifyContent: "center" }}>
+          <div className="flex justify-center">
             <TextControls
-            bold={!!selectedNode.data.bold}
-            italic={!!selectedNode.data.italic}
-            fontSize={selectedNode.data.fontSize ?? 12}
-            onBold={() =>
-              setNodes((nodes) =>
-                nodes.map((node) =>
-                  node.id === selectedNode.id
-                    ? { ...node, data: { ...node.data, bold: !node.data.bold } }
-                    : node,
-                ),
-              )
-            }
-            onItalic={() =>
-              setNodes((nodes) =>
-                nodes.map((node) =>
-                  node.id === selectedNode.id
-                    ? { ...node, data: { ...node.data, italic: !node.data.italic } }
-                    : node,
-                ),
-              )
-            }
-            onDecrease={() =>
-              setNodes((nodes) =>
-                nodes.map((node) =>
-                  node.id === selectedNode.id
-                    ? {
-                        ...node,
-                        data: { ...node.data, fontSize: Math.max(8, (node.data.fontSize ?? 12) - 1) },
-                      }
-                    : node,
-                ),
-              )
-            }
-            onIncrease={() =>
-              setNodes((nodes) =>
-                nodes.map((node) =>
-                  node.id === selectedNode.id
-                    ? {
-                        ...node,
-                        data: { ...node.data, fontSize: Math.min(48, (node.data.fontSize ?? 12) + 1) },
-                      }
-                    : node,
-                ),
-              )
-            }
-          />
+              bold={!!selectedNode.data.bold}
+              italic={!!selectedNode.data.italic}
+              fontSize={selectedNode.data.fontSize ?? 12}
+              onBold={() =>
+                setNodes((nodes) =>
+                  nodes.map((node) =>
+                    node.id === selectedNode.id
+                      ? { ...node, data: { ...node.data, bold: !node.data.bold } }
+                      : node,
+                  ),
+                )
+              }
+              onItalic={() =>
+                setNodes((nodes) =>
+                  nodes.map((node) =>
+                    node.id === selectedNode.id
+                      ? { ...node, data: { ...node.data, italic: !node.data.italic } }
+                      : node,
+                  ),
+                )
+              }
+              onDecrease={() =>
+                setNodes((nodes) =>
+                  nodes.map((node) =>
+                    node.id === selectedNode.id
+                      ? {
+                          ...node,
+                          data: { ...node.data, fontSize: Math.max(8, (node.data.fontSize ?? 12) - 1) },
+                        }
+                      : node,
+                  ),
+                )
+              }
+              onIncrease={() =>
+                setNodes((nodes) =>
+                  nodes.map((node) =>
+                    node.id === selectedNode.id
+                      ? {
+                          ...node,
+                          data: { ...node.data, fontSize: Math.min(48, (node.data.fontSize ?? 12) + 1) },
+                        }
+                      : node,
+                  ),
+                )
+              }
+            />
           </div>
         </div>
       ) : null}
 
       {canShowFormatting && selectedEdge ? (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", width: "100%", gap: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <TextLabel>Arrow</TextLabel>
-            <div style={{ display: "flex", gap: 4 }}>
-              {ARROW_BUTTONS.map(({ label, value, symbol }) => (
-                <button
-                  key={value}
-                  title={label}
-                  onClick={() => {
-                    setEdges((edges) =>
-                      edges.map((edge) =>
-                        edge.id === selectedEdge.id
-                          ? { ...edge, data: { ...edge.data, arrowDirection: value } }
-                          : edge,
-                      ),
-                    );
-                  }}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    minWidth: 24,
-                    height: 24,
-                    borderRadius: 4,
-                    border: "none",
-                    cursor: "pointer",
-                    background: (selectedEdge.data?.arrowDirection ?? "none") === value ? "var(--accent-primary)" : "transparent",
-                    color: (selectedEdge.data?.arrowDirection ?? "none") === value ? "var(--text-primary)" : "var(--text-muted)",
-                    fontSize: 12,
-                    fontFamily: "monospace",
-                    padding: "0 4px",
-                  }}
-                >
-                  {symbol}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="flex flex-col gap-2.5 border-b border-ink/15 p-3">
+          <FormatRow label="Arrow">
+            {ARROW_BUTTONS.map(({ label, value, symbol }) => (
+              <SymbolButton
+                key={value}
+                label={label}
+                symbol={symbol}
+                active={(selectedEdge.data?.arrowDirection ?? "none") === value}
+                onClick={() => {
+                  setEdges((edges) =>
+                    edges.map((edge) =>
+                      edge.id === selectedEdge.id
+                        ? { ...edge, data: { ...edge.data, arrowDirection: value } }
+                        : edge,
+                    ),
+                  );
+                }}
+              />
+            ))}
+          </FormatRow>
 
           <HorizontalDivider />
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <TextLabel>Type</TextLabel>
-            <div style={{ display: "flex", gap: 4 }}>
-              {EDGE_STYLE_BUTTONS.map(({ label, value, symbol }) => (
-                <button
-                  key={value}
-                  title={label}
-                  onClick={() => {
-                    setEdges((edges) =>
-                      edges.map((edge) =>
-                        edge.id === selectedEdge.id
-                          ? { ...edge, data: { ...edge.data, edgeStyle: value } }
-                          : edge,
-                      ),
-                    );
-                  }}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    minWidth: 24,
-                    height: 24,
-                    borderRadius: 4,
-                    border: "none",
-                    cursor: "pointer",
-                    background: (selectedEdge.data?.edgeStyle ?? "solid") === value
-                      ? "var(--accent-primary)"
-                      : "transparent",
-                    color: (selectedEdge.data?.edgeStyle ?? "solid") === value
-                      ? "var(--text-primary)"
-                      : "var(--text-muted)",
-                    fontSize: 12,
-                    fontFamily: "monospace",
-                    padding: "0 4px",
-                  }}
-                >
-                  {symbol}
-                </button>
-              ))}
-            </div>
-          </div>
-          
+          <FormatRow label="Type">
+            {EDGE_STYLE_BUTTONS.map(({ label, value, symbol }) => (
+              <SymbolButton
+                key={value}
+                label={label}
+                symbol={symbol}
+                active={(selectedEdge.data?.edgeStyle ?? "solid") === value}
+                onClick={() => {
+                  setEdges((edges) =>
+                    edges.map((edge) =>
+                      edge.id === selectedEdge.id
+                        ? { ...edge, data: { ...edge.data, edgeStyle: value } }
+                        : edge,
+                    ),
+                  );
+                }}
+              />
+            ))}
+          </FormatRow>
+
           <HorizontalDivider />
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <TextLabel>Edge</TextLabel>
-            <div style={{ display: "flex", gap: 4 }}>
-              {NODE_COLOR_PALETTE.map((pair) => (
-                <ColorButton
-                  key={pair.id}
-                  color={pair.text}
-                  active={(selectedEdge.data?.color ?? "") === pair.text}
-                  onClick={() => {
-                    setEdges((edges) =>
-                      edges.map((edge) =>
-                        edge.id === selectedEdge.id
-                          ? { ...edge, data: { ...edge.data, color: pair.text, colorId: pair.id } }
-                          : edge,
-                      ),
-                    );
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-          
+          <FormatRow label="Edge">
+            {NODE_COLOR_PALETTE.map((pair) => (
+              <ColorButton
+                key={pair.id}
+                color={pair.text}
+                active={(selectedEdge.data?.color ?? "") === pair.text}
+                onClick={() => {
+                  setEdges((edges) =>
+                    edges.map((edge) =>
+                      edge.id === selectedEdge.id
+                        ? { ...edge, data: { ...edge.data, color: pair.text, colorId: pair.id } }
+                        : edge,
+                    ),
+                  );
+                }}
+              />
+            ))}
+          </FormatRow>
+
           <HorizontalDivider />
 
-          <div style={{ display: "flex", justifyContent: "center" }}>
+          <div className="flex justify-center">
             <TextControls
-            bold={!!selectedEdge.data?.bold}
-            italic={!!selectedEdge.data?.italic}
-            fontSize={selectedEdge.data?.fontSize ?? 11}
-            onBold={() =>
-              setEdges((edges) =>
-                edges.map((edge) =>
-                  edge.id === selectedEdge.id
-                    ? { ...edge, data: { ...edge.data, bold: !edge.data?.bold } }
-                    : edge,
-                ),
-              )
-            }
-            onItalic={() =>
-              setEdges((edges) =>
-                edges.map((edge) =>
-                  edge.id === selectedEdge.id
-                    ? { ...edge, data: { ...edge.data, italic: !edge.data?.italic } }
-                    : edge,
-                ),
-              )
-            }
-            onDecrease={() =>
-              setEdges((edges) =>
-                edges.map((edge) =>
-                  edge.id === selectedEdge.id
-                    ? {
-                        ...edge,
-                        data: {
-                          ...edge.data,
-                          fontSize: Math.max(8, (edge.data?.fontSize ?? 11) - 1),
-                        },
-                      }
-                    : edge,
-                ),
-              )
-            }
-            onIncrease={() =>
-              setEdges((edges) =>
-                edges.map((edge) =>
-                  edge.id === selectedEdge.id
-                    ? {
-                        ...edge,
-                        data: {
-                          ...edge.data,
-                          fontSize: Math.min(48, (edge.data?.fontSize ?? 11) + 1),
-                        },
-                      }
-                    : edge,
-                ),
-              )
-            }
-          />
+              bold={!!selectedEdge.data?.bold}
+              italic={!!selectedEdge.data?.italic}
+              fontSize={selectedEdge.data?.fontSize ?? 11}
+              onBold={() =>
+                setEdges((edges) =>
+                  edges.map((edge) =>
+                    edge.id === selectedEdge.id
+                      ? { ...edge, data: { ...edge.data, bold: !edge.data?.bold } }
+                      : edge,
+                  ),
+                )
+              }
+              onItalic={() =>
+                setEdges((edges) =>
+                  edges.map((edge) =>
+                    edge.id === selectedEdge.id
+                      ? { ...edge, data: { ...edge.data, italic: !edge.data?.italic } }
+                      : edge,
+                  ),
+                )
+              }
+              onDecrease={() =>
+                setEdges((edges) =>
+                  edges.map((edge) =>
+                    edge.id === selectedEdge.id
+                      ? {
+                          ...edge,
+                          data: {
+                            ...edge.data,
+                            fontSize: Math.max(8, (edge.data?.fontSize ?? 11) - 1),
+                          },
+                        }
+                      : edge,
+                  ),
+                )
+              }
+              onIncrease={() =>
+                setEdges((edges) =>
+                  edges.map((edge) =>
+                    edge.id === selectedEdge.id
+                      ? {
+                          ...edge,
+                          data: {
+                            ...edge.data,
+                            fontSize: Math.min(48, (edge.data?.fontSize ?? 11) + 1),
+                          },
+                        }
+                      : edge,
+                  ),
+                )
+              }
+            />
           </div>
         </div>
       ) : null}
 
-      {canShowFormatting && (selectedNode || selectedEdge) && (
-        <div
-          aria-hidden
-          style={{
-            height: 1,
-            width: "100%",
-            background: "var(--border-default)",
-            margin: "0",
-          }}
-        />
-      )}
-
-      <div style={{ display: "flex", alignItems: "center", gap: 0, flexWrap: "wrap" }}>
+      {/* Segmented bar: every control is a cell split by a hairline. */}
+      <div className="flex flex-wrap items-stretch">
         {totalSelected > 0 ? (
-          <>
-            <ControlButton
-              label="Delete selection"
-              onClick={() => {
-                void deleteElements({
-                  nodes: selectedNodeIds.map((id) => ({ id })),
-                  edges: selectedEdgeIds.map((id) => ({ id })),
-                });
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
-            </ControlButton>
-            <Divider />
-          </>
+          <ControlButton
+            label="Delete selection"
+            className="hover:text-paper-pin-red"
+            onClick={() => {
+              void deleteElements({
+                nodes: selectedNodeIds.map((id) => ({ id })),
+                edges: selectedEdgeIds.map((id) => ({ id })),
+              });
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </ControlButton>
         ) : null}
 
         <ControlButton label="Zoom out" onClick={() => zoomOut({ duration: 300 })}>
@@ -419,14 +344,12 @@ export function CanvasControlBar({
         >
           {isMinimapOpen ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </ControlButton>
-        <Divider />
         <ControlButton label="Undo" onClick={undo} disabled={!canUndo}>
           <Undo2 className="h-4 w-4" />
         </ControlButton>
         <ControlButton label="Redo" onClick={redo} disabled={!canRedo}>
           <Redo2 className="h-4 w-4" />
         </ControlButton>
-        <Divider />
         <ControlButton label="Templates" onClick={onOpenTemplates}>
           <LayoutTemplate className="h-4 w-4" />
         </ControlButton>
@@ -434,44 +357,23 @@ export function CanvasControlBar({
     </div>
   );
 }
+
 function HorizontalDivider() {
-  return (
-    <div
-      aria-hidden
-      style={{
-        height: 1,
-        width: "100%",
-        background: "var(--border-default)",
-        margin: "2px 0",
-      }}
-    />
-  );
+  return <div aria-hidden className="h-px w-full bg-ink/15" />;
 }
-function Divider() {
+
+function FormatRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div
-      aria-hidden
-      style={{
-        width: 1,
-        height: 16,
-        background: "var(--border-default)",
-        margin: "0 6px",
-        flexShrink: 0,
-      }}
-    />
+    <div className="flex items-center justify-between gap-3">
+      <TextLabel>{label}</TextLabel>
+      <div className="flex gap-1">{children}</div>
+    </div>
   );
 }
 
 function TextLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span
-      style={{
-        fontSize: 10,
-        color: "var(--text-muted)",
-        marginRight: 6,
-        userSelect: "none",
-      }}
-    >
+    <span className="font-mono text-chrome tracking-chrome text-ink-soft uppercase select-none">
       {children}
     </span>
   );
@@ -497,23 +399,49 @@ function TextControls({
   onIncrease,
 }: TextControlsProps) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 2, marginRight: 2 }}>
+    <div className="flex items-stretch rounded-paper border border-ink/20">
       <ControlButton label="Bold" onClick={onBold} active={bold}>
-        <span style={{ fontWeight: "bold", fontSize: 13 }}>B</span>
+        <span className="font-brand text-[13px] font-bold">B</span>
       </ControlButton>
       <ControlButton label="Italic" onClick={onItalic} active={italic}>
-        <span style={{ fontStyle: "italic", fontSize: 13 }}>I</span>
+        <span className="font-serif text-[15px] italic">I</span>
       </ControlButton>
       <ControlButton label="Decrease font size" onClick={onDecrease}>
         <Minus className="h-3.5 w-3.5" />
       </ControlButton>
-      <span style={{ minWidth: 24, fontSize: 10, color: "var(--text-muted)", textAlign: "center" }}>
+      <span className="flex min-w-9 items-center justify-center border-l border-ink/15 font-mono text-chrome text-ink-soft">
         {fontSize}
       </span>
       <ControlButton label="Increase font size" onClick={onIncrease}>
         <Plus className="h-3.5 w-3.5" />
       </ControlButton>
     </div>
+  );
+}
+
+interface SymbolButtonProps {
+  label: string;
+  symbol: string;
+  active: boolean;
+  onClick: () => void;
+}
+
+function SymbolButton({ label, symbol, active, onClick }: SymbolButtonProps) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-7 min-w-7 cursor-pointer items-center justify-center rounded-paper border px-1.5 font-mono text-xs transition-colors",
+        active ? "border-ink bg-ink text-paper-cream" : "border-ink/20 text-ink hover:border-ink",
+        focusClass,
+      )}
+    >
+      {symbol}
+    </button>
   );
 }
 
@@ -526,19 +454,19 @@ interface ColorButtonProps {
 function ColorButton({ color, active, onClick }: ColorButtonProps) {
   return (
     <button
+      type="button"
       aria-label="Set color"
+      aria-pressed={active}
       onClick={(event) => {
         event.stopPropagation();
         onClick();
       }}
-      style={{
-        width: 20,
-        height: 20,
-        borderRadius: "50%",
-        border: active ? "2px solid var(--text-primary)" : "1px solid var(--border-default)",
-        background: color,
-        cursor: "pointer",
-      }}
+      style={{ background: color }}
+      className={cn(
+        "size-5 cursor-pointer rounded-full border outline-none",
+        active ? "border-ink ring-2 ring-ink ring-offset-1 ring-offset-paper-bright" : "border-ink/25 hover:border-ink",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink/60",
+      )}
     />
   );
 }
@@ -548,6 +476,7 @@ interface ControlButtonProps {
   onClick: () => void;
   disabled?: boolean;
   active?: boolean;
+  className?: string;
   children: React.ReactNode;
 }
 
@@ -556,34 +485,27 @@ function ControlButton({
   onClick,
   disabled = false,
   active = false,
+  className,
   children,
 }: ControlButtonProps) {
   return (
     <button
+      type="button"
       aria-label={label}
       title={label}
+      aria-pressed={active || undefined}
       onClick={(event) => {
         event.stopPropagation();
         onClick();
       }}
       disabled={disabled}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: 32,
-        height: 32,
-        background: active
-          ? "color-mix(in srgb, var(--accent-primary) 26%, transparent)"
-          : "transparent",
-        border: "none",
-        borderRadius: 8,
-        color: disabled ? "var(--text-muted)" : "var(--text-primary)",
-        cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.4 : 1,
-        pointerEvents: disabled ? "none" : "auto",
-        transition: "background 0.15s ease, color 0.15s ease",
-      }}
+      className={cn(
+        "flex size-9 shrink-0 cursor-pointer items-center justify-center border-l border-ink/15 first:border-l-0 transition-colors",
+        active ? "bg-ink text-paper-cream" : "text-ink hover:bg-ink/5",
+        "disabled:pointer-events-none disabled:opacity-35",
+        focusClass,
+        className,
+      )}
     >
       {children}
     </button>

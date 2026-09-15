@@ -283,3 +283,27 @@
     color-scheme: dark;
     }
 }
+
+/* ============================================================
+   Draftly loader motion (components/ui/marketing/draftly-loader.tsx).
+   Swing stays inside the ±8deg rotation limit. Classes are used with
+   motion-safe: so reduced-motion users get a still note.
+   ============================================================ */
+@theme {
+    --animate-loader-dot: loader-dot 1.1s ease-in-out infinite;
+    --animate-loader-swing: loader-swing 5.2s ease-in-out infinite;
+    --animate-loader-crawl: loader-crawl 1.4s linear infinite;
+
+    @keyframes loader-dot {
+        0%, 100% { opacity: 0.2; transform: translateY(0); }
+        40% { opacity: 1; transform: translateY(-2px); }
+    }
+    @keyframes loader-swing {
+        0%, 100% { transform: rotate(-3deg); }
+        50% { transform: rotate(-1.4deg); }
+    }
+    @keyframes loader-crawl {
+        from { background-position: 0 0; }
+        to { background-position: 24px 0; }
+    }
+}

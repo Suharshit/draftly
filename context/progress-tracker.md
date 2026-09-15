@@ -993,3 +993,14 @@ Update this file whenever the current phase, active feature, or implementation s
 - Fixed long project names running under the rename/delete buttons in `ProjectSidebar` (2026-09-15):
     - On hover or keyboard focus of an owned row, the time is removed, the link reserves right padding for the
       buttons, and the name's ellipsis is replaced by a 2rem fade (CSS mask). Otherwise the name shows as before.
+- Restyled `AiSidebar` to the AI sidebar wireframe (2026-09-15, `components/editor/ai-sidebar.tsx` only):
+    - Docked full-height cream panel on the right edge of the canvas area (w-94, left hairline, slides out when
+      closed, `inert` while closed). Brand tokens, `scheme-light`; no shadcn primitives (Base UI tabs directly,
+      native textarea/buttons, plain scroll container).
+    - Header: sparkle mark, "AI Workspace", "Collaborate with Draftly AI" (was "Ghost AI"), close button.
+    - Underlined "AI Architect" / "Specs" tabs. Empty state is an ink-bordered card with the three starter prompts
+      as full-width rows. User messages are ink slabs, assistant messages paper cards, errors get a pin-red left
+      rule, and the run status is mono chrome with a spinner.
+    - Composer: ink-bordered textarea, mono "Enter to send · Shift+Enter new line" hint, square ink send button
+      with an arrow. Specs tab restyled but still inert.
+    - Behaviour and `useDesignAgent` wiring unchanged. Canvas and navbar untouched.

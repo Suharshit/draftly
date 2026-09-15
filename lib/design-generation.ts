@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { assignEdgeHandles } from "@/lib/canvas-connections";
 import {
   CANVAS_EDGE_TYPE,
   CANVAS_NODE_TYPE,
@@ -187,6 +188,7 @@ function assignGridCells(nodes: DesignGraph["nodes"]): Map<string, { column: num
  *
  * Nodes and edges are re-keyed under `idPrefix`, laid out on a non-overlapping
  * grid, and given the canvas node/edge types plus `SHAPE_DEFAULTS` sizing.
+ * Each edge gets a free connection point (side) on both nodes.
  * Edges pointing at nodes the model did not define are dropped.
  */
 export function buildCanvasGraph(
@@ -264,5 +266,6 @@ export function buildCanvasGraph(
     });
   }
 
-  return { nodes, edges };
+  // One edge per node side, so connections don't pile up on a single point.
+  return { nodes, edges: assignEdgeHandles(nodes, edges) };
 }

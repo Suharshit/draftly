@@ -35,6 +35,8 @@ const SYSTEM_PROMPT = [
   "only when the protocol or payload is not obvious from the two components it joins.",
   "Lay the diagram out top to bottom: entry points at the lowest y values, datastores at the",
   "highest. Components that sit at the same level of the request path share a y value.",
+  "Every component has four connection points (top, right, bottom, left) and each point takes",
+  "one connection, so give each component at most four connections in total.",
   "Prefer a focused diagram of the components that matter over an exhaustive one.",
 ].join(" ");
 

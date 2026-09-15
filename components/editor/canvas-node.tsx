@@ -19,12 +19,13 @@ import {
   type Node,
 } from "@xyflow/react";
 
+import { getUsedSides } from "@/lib/canvas-connections";
 import { resolveNodeFill, TEXT_NODE_SHAPE } from "@/types/canvas";
 import type { CanvasNodeData, CanvasNodeShape } from "@/types/canvas";
 
 // ---------------------------------------------------------------------------
-// Handles — source + target at every cardinal position
-// Only handles with a connected edge are visible; all show on node hover
+// Handles — one connection point per side, each holding a single edge
+// A point is visible on hover or while it holds an edge; a used point can't start or accept another
 // ---------------------------------------------------------------------------
 
 const HANDLE_STYLE_BASE: React.CSSProperties = {
@@ -41,33 +42,37 @@ const POSITIONS = [Position.Top, Position.Right, Position.Bottom, Position.Left]
 function NodeHandles({ nodeId, isHovered }: { nodeId: string; isHovered: boolean }) {
   const edges = useEdges();
 
-  // Set of position strings ("top" | "right" | "bottom" | "left") that have ≥1 edge
-  const connectedPositions = useMemo(() => {
-    const set = new Set<string>();
-    for (const edge of edges) {
-      if (edge.source === nodeId && edge.sourceHandle) {
-        set.add(edge.sourceHandle.split("-")[0]);
-      }
-      if (edge.target === nodeId && edge.targetHandle) {
-        set.add(edge.targetHandle.split("-")[0]);
-      }
-    }
-    return set;
-  }, [edges, nodeId]);
+  const usedSides = useMemo(() => getUsedSides(edges, nodeId), [edges, nodeId]);
 
   return (
     <>
       {POSITIONS.map((pos) => {
-        const visible = isHovered || connectedPositions.has(pos);
+        const isUsed = usedSides.has(pos);
+        const visible = isHovered || isUsed;
         const style: React.CSSProperties = {
           ...HANDLE_STYLE_BASE,
           opacity: visible ? 1 : 0,
           pointerEvents: visible ? undefined : "none",
+          cursor: isUsed ? "not-allowed" : "crosshair",
         };
         return (
           <Fragment key={pos}>
-            <Handle type="source" position={pos} id={`${pos}-s`} style={style} />
-            <Handle type="target" position={pos} id={`${pos}-t`} style={style} />
+            <Handle
+              type="source"
+              position={pos}
+              id={`${pos}-s`}
+              style={style}
+              isConnectableStart={!isUsed}
+              isConnectableEnd={!isUsed}
+            />
+            <Handle
+              type="target"
+              position={pos}
+              id={`${pos}-t`}
+              style={style}
+              isConnectableStart={!isUsed}
+              isConnectableEnd={!isUsed}
+            />
           </Fragment>
         );
       })}
@@ -85,7 +90,7 @@ const STROKE_WIDTH        = 1.5;
 const STROKE_WIDTH_ACTIVE = 2.5;
 /** Hard offset shadow, never blurred. `--shadow-flat` is valid drop-shadow() syntax. */
 const SHAPE_SHADOW_FILTER = "drop-shadow(var(--shadow-flat))";
-export const DEFAULT_NODE_FONT_SIZE = 14;
+export const DEFAULT_NODE_FONT_SIZE = 11;
 
 /** Default mono kicker above the label, describing what the shape usually stands for. */
 export const SHAPE_KICKERS: Record<CanvasNodeShape, string> = {

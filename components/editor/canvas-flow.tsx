@@ -11,6 +11,7 @@ import {
   ConnectionMode,
   ConnectionLineType,
   useReactFlow,
+  type Connection,
   type NodeTypes,
   type EdgeTypes,
 } from "@xyflow/react";
@@ -30,6 +31,7 @@ import { StarterTemplatesModal } from "@/components/editor/starter-templates-mod
 import { CANVAS_TEMPLATES, type CanvasTemplate } from "@/components/editor/starter-templates";
 import { useCanvasAutosave, type CanvasSaveStatus } from "@/hooks/use-canvas-autosave";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import { canConnect } from "@/lib/canvas-connections";
 import { CANVAS_NODE_TYPE, CANVAS_EDGE_TYPE, TEXT_NODE_SHAPE } from "@/types/canvas";
 import type { CanvasEdge, CanvasNode } from "@/types/canvas";
 
@@ -311,6 +313,12 @@ function CanvasFlowInner({
     updateMyPresence({ cursor: null });
   }, [updateMyPresence]);
 
+  // Each side of a node holds one edge, so a point already in use can't take another connection.
+  const isValidConnection = useCallback(
+    (connection: CanvasEdge | Connection) => canConnect(edges, connection),
+    [edges],
+  );
+
   return (
     <div
       className={`relative h-full w-full bg-paper-cream ${isSpacePressed ? "cursor-grab" : "cursor-default"}`}
@@ -326,6 +334,7 @@ function CanvasFlowInner({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        isValidConnection={isValidConnection}
         onDelete={onDelete}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}

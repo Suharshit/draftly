@@ -12,6 +12,7 @@ import {
   resolveDesignModel,
 } from "@/lib/ai/design-agent-engine";
 import { buildCanvasGraph, DESIGN_AGENT_STAGE_KEY, type DesignAgentStage } from "@/lib/design-generation";
+import { readRoomSnapshot } from "@/lib/canvas-room";
 import { getLiveblocksClient } from "@/lib/liveblocks";
 import { SHAPE_DEFAULTS, type CanvasEdge, type CanvasNode, type CanvasShape } from "@/types/canvas";
 
@@ -56,13 +57,8 @@ function resolveOrigin(existingNodes: readonly CanvasNode[]): { x: number; y: nu
 
 /** Reads the room without changing it, so the agent knows what is already drawn. */
 async function readCanvas(roomId: string): Promise<CanvasSummary> {
-  let snapshot: { nodes: CanvasNode[]; edges: CanvasEdge[] } = { nodes: [], edges: [] };
-
-  await mutateFlow<CanvasNode, CanvasEdge>({ client: getLiveblocksClient(), roomId }, (flow) => {
-    snapshot = { nodes: [...flow.nodes], edges: [...flow.edges] };
-  });
-
-  return summarizeCanvas(snapshot.nodes, snapshot.edges);
+  const { nodes, edges } = await readRoomSnapshot(roomId);
+  return summarizeCanvas(nodes, edges);
 }
 
 /** Generates the diagram for an approved plan and writes it into the room. */

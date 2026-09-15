@@ -44,12 +44,14 @@ export interface UseAiSessionResult {
 }
 
 const STAGE_LABELS: Record<DesignAgentStage, string> = {
+  analyzing: "Reading your requirements…",
+  planning: "Drafting a plan…",
   generating: "Designing the architecture…",
   writing: "Adding components to the canvas…",
   done: "Finishing up…",
 };
 
-const STARTING_STATUS = "Starting the design run…";
+const STARTING_STATUS = "Thinking…";
 
 const GENERIC_ERROR = "Something went wrong sending that message. Try again.";
 

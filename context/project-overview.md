@@ -19,8 +19,9 @@ Ghost AI is a real-time collaborative system design workspace. Users describe a 
 2. User creates or selects a project.
 3. User enters the project workspace.
 4. User optionally imports a starter system design template into the canvas.
-5. User prompts the AI to generate or extend the system design.
-6. AI generates nodes and edges in the shared canvas.
+5. User describes the system to the AI; the AI asks clarifying questions when important requirements are missing,
+   then proposes a plan (components, flows, key decisions, assumptions) for the user to approve or revise.
+6. On approval, AI generates nodes and edges in the shared canvas.
 7. Collaborators edit and refine the design.
 8. User triggers spec generation.
 9. App persists the generated Markdown spec.
@@ -49,7 +50,14 @@ Ghost AI is a real-time collaborative system design workspace. Users describe a 
 
 ### AI Architecture Generation
 
-- AI generates a system design from a user-supplied prompt.
+- AI generates a system design through a short conversation instead of a single prompt:
+  - It keeps a running requirements brief across turns.
+  - It asks up to 3 rounds of clarifying questions (at most 3 per round, each with suggested answers) when an
+    unknown would change the architecture; users can skip to planning with stated assumptions.
+  - It proposes a plan — components, key flows, major decisions with rationale and alternatives, and assumptions —
+    that the user approves or asks to revise before anything is drawn.
+- AI chat sessions are saved per user per project for 7 days after last use, so a conversation and an in-flight
+  generation survive a reload.
 
 ### Spec Generation
 

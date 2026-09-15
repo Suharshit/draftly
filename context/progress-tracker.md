@@ -1116,3 +1116,34 @@ Update this file whenever the current phase, active feature, or implementation s
       Import behaviour is unchanged.
     - `EditorDialogShell` has no users left; it is kept, not deleted.
     - Type check and lint pass. Not checked in a browser.
+- Smaller default node text, slightly larger default shapes (2026-09-15):
+    - `canvas-node.tsx`: `DEFAULT_NODE_FONT_SIZE` 14 → 11. It is also the fallback for free text nodes and the
+      control bar's font-size stepper. Nodes with a stored `data.fontSize` keep it.
+    - `types/canvas.ts` `SHAPE_DEFAULTS` grew ~10%: rectangle 120x60, circle 80x80, diamond 100x100, pill 120x50,
+      cylinder 90x80, hexagon 100x100 (text nominal size unchanged). This applies to dropped shapes, starter templates
+      and AI-generated nodes. Existing nodes keep their stored `style` size.
+    - Type check passes. Not checked in a browser.
+- One edge per connection point; starter templates reworked (2026-09-15):
+    - New `lib/canvas-connections.ts`: every node has four points (top/right/bottom/left), each holding one edge in
+      either direction. `getUsedSides`, `canConnect` (rejects a connection onto a used point or a same-side
+      self-loop), and `assignEdgeHandles` (gives handle-less edges a free side on both nodes; straight edges pick
+      first, diagonal ones turn out of a free side; existing handles kept; only a node with more than 4 edges shares).
+      Edges saved without handle ids count as the top side, where React Flow draws them.
+    - `canvas-node.tsx`: a used point stays visible and gets `isConnectableStart/End={false}` (not-allowed cursor).
+      `canvas-flow.tsx`: `isValidConnection` uses `canConnect`, so drops that snap onto a used point are refused too.
+    - `lib/design-generation.ts`: `buildCanvasGraph` runs `assignEdgeHandles`. The design-agent system prompt now
+      tells the model each component has at most four connections.
+    - `starter-templates.ts` rewritten: nodes placed by centre so rows/columns line up; explicit kickers (Client,
+      Gateway, Queue, Database…), since the shape defaults said "Queue" on pills and "External" on hexagons; paper
+      fills by role (entry blue, compute paper, messaging coral, data amber, output sage) instead of legacy dark
+      palette colors, with no white `textColor`/`strokeColor`; every edge has forward/two-way arrows, short labels
+      where the flow isn't obvious, and dashed style for async hand-offs (DLQ edge pin red). Nodes that had more
+      than 4 edges were restructured: shared DB became per-service DBs (Microservices), app servers ×N + DB proxy
+      (Scalable Web App), command bus (Saga), push fed by chat (Real-Time Messaging), processor archives to the lake
+      (Streaming), one telemetry source + alerting above metrics (Observability), embedder serves search (RAG).
+      CI/CD gained an image registry.
+    - `canvas-edge.tsx`: edge labels and the inline label editor moved to paper styling (paper-bright, ink text,
+      Archivo 500, 2px corners, ink hairline border).
+    - Type check and lint pass. A tsx script over all 13 templates confirmed: every edge has handles, no node side
+      holds two edges, max 4 edges per node, no overlapping nodes. It also covered `canConnect` cases and AI graph
+      handles. Not checked in a browser.

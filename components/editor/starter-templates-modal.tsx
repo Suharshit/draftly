@@ -191,7 +191,7 @@ export function StarterTemplatesModal({
           <span>{templates.length}</span>
         </div>
 
-        <ul className="-mr-3 grid max-h-[52vh] grid-cols-1 gap-5 overflow-y-auto pr-3 pb-1 md:grid-cols-3">
+        <ul className="-mr-3 grid max-h-[56vh] grid-cols-1 gap-5 overflow-y-auto pr-3 pb-3 md:grid-cols-3 border border-ink/40 rounded-paper p-3 shadow-inner bg-paper-cream">
           {templates.map((template) => (
             <li
               key={template.id}

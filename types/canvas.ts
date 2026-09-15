@@ -28,12 +28,12 @@ export type CanvasNodeShape = CanvasShape | typeof TEXT_NODE_SHAPE;
 
 /** Default width / height for each shape (pixels). */
 export const SHAPE_DEFAULTS: Record<CanvasNodeShape, { width: number; height: number }> = {
-  rectangle: { width: 110, height: 54 },
-  circle:    { width: 72,  height: 72 },
-  diamond:   { width: 90,  height: 90 },
-  pill:      { width: 110, height: 46 },
-  cylinder:  { width: 82,  height: 72 },
-  hexagon:   { width: 90,  height: 90 },
+  rectangle: { width: 120, height: 60 },
+  circle:    { width: 80,  height: 80 },
+  diamond:   { width: 100, height: 100 },
+  pill:      { width: 130, height: 54 },
+  cylinder:  { width: 90,  height: 80 },
+  hexagon:   { width: 100, height: 100 },
   /** Nominal only (drop placement, layout offsets). Text nodes are sized by their content. */
   text:      { width: 160, height: 32 },
 };

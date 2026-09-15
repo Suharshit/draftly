@@ -1,10 +1,19 @@
+// What a Trigger.dev run was started for. The token route authorises any kind;
+// the spec routes look up the latest SPEC run for a project.
+enum TaskRunKind {
+  DESIGN
+  SPEC
+}
+
 model TaskRun {
-  id        String   @id @default(cuid())
-  runId     String   @unique
+  id        String      @id @default(cuid())
+  runId     String      @unique
   projectId String
   userId    String
-  createdAt DateTime @default(now())
+  kind      TaskRunKind @default(DESIGN)
+  createdAt DateTime    @default(now())
 
   @@index([runId])
   @@index([userId, projectId])
+  @@index([projectId, kind, createdAt])
 }

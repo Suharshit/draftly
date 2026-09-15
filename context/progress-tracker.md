@@ -11,9 +11,11 @@ Update this file whenever the current phase, active feature, or implementation s
 - Persistent, multi-turn AI design sessions (plan: storage → wire sessions → turn engine → UI cards → generation
   quality → docs). Steps 1 (storage, PR #21), 2 (sessions in the sidebar, PR #22) and 3 (clarify → plan → generate
   turn engine, PR #23) and 4 (question/plan/result cards, PR #25) are done; step 5 (generation quality: canvas
-  context, roles and kickers, async edges, validate-and-repair, PR #26) is done; step 6 (docs) is on
-  `feat/ai-sessions-docs`. Next: the Specs tab (Generate Spec + automatic Markdown download), which can reuse the
-  plan decisions stored in RESULT payloads.
+  context, roles and kickers, async edges, validate-and-repair, PR #26) and step 6 (docs, PR #27) are done.
+- Generate Spec (unit G1) is built on `feat/generate-spec`, stacked on #27, and awaiting review.
+- Repository note (2026-09-16): GitHub `main` contains #21–#23 only. #25 and #26 were merged into their stacked
+  base branches after those bases had already merged, so steps 4 and 5 are not on `main` yet; #27 and the G1 PR
+  carry them.
 - After that: the Specs tab (Generate Spec + automatic Markdown download), which remains inert.
 
 ## Completed
@@ -1466,3 +1468,74 @@ Update this file whenever the current phase, active feature, or implementation s
       - Section order after the splice: Getting started, Platform, AI, Authentication, Design system, Reference,
         Contributing, Roadmap.
       - No code changed, so lint, typecheck, and build were not re-run.
+- Generate Spec, unit G1: Markdown technical spec from the canvas, with automatic download (2026-09-16, branch
+  `feat/generate-spec`, based on `feat/ai-sessions-docs` because GitHub `main` is missing #25 and #26):
+    - Data (migration `20260915195650_add_project_spec`, additive, applied): `TaskRunKind` enum (`DESIGN`, `SPEC`) and
+      `TaskRun.kind` (default `DESIGN`, so existing rows are design runs) with a `(projectId, kind, createdAt)` index;
+      `Project.specMdPath`, `specRunId`, `specGeneratedAt`, `specStats` (JSON).
+    - Shared refactors: `lib/ai/model.ts` (model id, thinking level/budget, `withSchemaRetry`, `modelIdOf`) moved out of
+      `design-agent-engine.ts`; `lib/ai/run-failure.ts` (`describeRunFailure` with generic, timeout and passthrough
+      messages) used by `session-turns.ts` and the spec store; `lib/canvas-room.ts` (`readRoomSnapshot`) used by both
+      tasks. No behaviour change for design turns.
+    - `lib/spec/spec-graph.ts`: `buildSpecGraph` — drawn, labelled components (cap 200, total kept), connections
+      between them (unknown endpoints and self loops dropped), groups of connected components via union-find in
+      reading order (`g1`…) plus a `standalone` group, component refs (`c1`…) in group then position order, kinds from
+      kicker or shape, and text notes attached to the nearest group within 600px (otherwise general notes).
+    - `lib/spec/mermaid.ts`: `renderGroupMermaid` — `flowchart TD`, one node per component with shape mapping (pill
+      `([ ])`, rectangle `[ ]`, cylinder `[( )]`, circle `(( ))`, diamond `{ }`, hexagon `{{ }}`), quoted labels with
+      `#`, `"`, `<`, `>`, `|` escaped, arrows for forward / backward (reversed) / bidirectional / none, dashed for
+      async and dotted edges, quoted edge labels.
+    - `lib/spec/spec-schema.ts`: model output schema (overview, goals, group name/purpose/flow, component
+      responsibilities, decisions with alternatives, trade-offs, component refs and source
+      `recorded | stated | inferred`, risks with mitigations, open questions); `sanitizeSpecContent` trims to list
+      limits, drops unknown groups/components/refs, and removes internal refs such as "(c1)" from prose (a live run
+      showed flow steps like "Web Client (c1) sends…"); run result and status types; stage names; abort messages.
+    - `lib/spec/spec-prompt.ts` + `spec-engine.ts`: one `generateText` + `Output.object` call with medium thinking, a
+      180s timeout, and one schema retry. The prompt lists groups, refs, connections (direction, label, sync/async),
+      notes, and recorded decisions, and asks for 3–6 decisions from the diagram in addition to recorded ones (the
+      first live run returned only the recorded decision).
+    - `lib/spec/render-markdown.ts`: title and generation line, contents, 1 Overview (goals, general notes), 2 Key
+      decisions as `> [!IMPORTANT]` callouts (why, alternatives, trade-offs, components, source), 3 System diagrams
+      (per group: purpose, Mermaid, component table, flow, notes; "Standalone components"), 4 Component reference
+      (kind, diagram, responsibility, receives from / sends to / connected to), 5 Connections table, 6 Risks table and
+      open-question checklist, footer with model and time. Table cells escape pipes; fallbacks when prose is missing.
+    - `src/trigger/spec-agent.ts`: reads the room, aborts with a user-facing message on an empty canvas or more than 200
+      components, generates the prose, renders, returns `{ markdown, stats }`. Single attempt, `maxDuration` 300s,
+      stages `reading` → `writing` → `rendering` → `done`.
+    - `lib/spec/spec-store.ts` (Trigger and Blob injectable for tests): `getSpecStatus` stores the latest finished SPEC
+      run on read (upload to private Blob, update guarded on `specRunId`, delete the duplicate or previous blob) and
+      reports pending runs and friendly failures; `loadRecordedDecisions` (the user's unexpired completed RESULT
+      messages, newest first, one per title, max 12); `startSpecRun` (409 with the pending run, trigger, `TaskRun` kind
+      SPEC); `readSpecMarkdown`.
+    - Routes: `GET`/`POST /api/projects/[projectId]/spec` (status; start → 202 / 409 / 502) and
+      `GET /api/projects/[projectId]/spec/markdown` (attachment `{project-slug}-spec.md`, via
+      `lib/spec/spec-file-name.ts` because route files may only export handlers). Owner or collaborator access.
+    - `hooks/use-spec-generator.ts` (mounted in `AiSidebar` so a run is followed while another tab is open): loads the
+      status, starts runs (409 follows the existing run), Realtime stages via the existing token route plus 4s
+      polling, and downloads automatically when the run the user started is stored.
+    - `components/editor/spec-panel.tsx`: description, Generate / Regenerate button with spinner and stage text, error
+      alert, latest-spec card (generated time, counts, **Download .md** link), empty and loading states. Replaces the
+      placeholder Specs tab in `ai-sidebar.tsx`.
+    - Context: `project-overview.md` Spec Generation describes the built behaviour; `architecture-context.md` gains a
+      Spec Agent section and invariant 6 covers both tasks; `ui-context.md` lists the Specs tab. `docs.md` (local,
+      gitignored) Spec generation page, reference tables, roadmap, decisions, and history updated.
+    - Validation checks:
+      - `pnpm typecheck` and `pnpm lint` passed (after `next typegen` for the new routes)
+      - Offline spec checks (60, no model or DB): grouping, refs, kinds, dropped edges, note placement, 200 cap; Mermaid
+        shapes, arrows, escaping; sanitising and limits; Markdown sections, callouts, tables, directions, notes,
+        fallbacks, pipe escaping; prompt text; file names; all 13 starter templates rendered with a stub spec (one
+        diagram per group, every component referenced, Mermaid line counts match)
+      - Ref stripping checks (10): refs removed from every prose field, paragraph breaks kept, other parentheses kept
+      - Spec store checks against the database with fake Trigger/Blob (22): empty, design runs ignored, pending, quota /
+        abort / unknown / missing failures, invalid output rejected before upload, stored once with finish time and
+        stats, not re-retrieved, failed newer run keeps the old spec, concurrent reads store once and delete the
+        duplicate and previous blobs, recorded decisions deduplicated and scoped to the user's unexpired completed
+        results
+      - Live runs through the local Trigger worker on `gemini-3.5-flash-lite` with the Microservices template and a
+        recorded decision (throwaway project, room, session, and blob removed): 202 → 409 for a second start → stored in
+        about 11s with stats 8 / 8 / 1; Markdown in Blob with all sections, one Mermaid diagram, every component, the
+        recorded decision tagged "Recorded during AI design". After the prompt change the second run also inferred an
+        "API Gateway Entry Point" decision (2 decisions, 0 warnings).
+      - Signed-out requests to the three spec routes are stopped by Clerk (307).
+    - Not yet verified: the Specs tab in a signed-in browser (button, stages, auto-download, Download link), Mermaid
+      rendering on GitHub, and the ref-stripping fix in a live run.

@@ -2,11 +2,13 @@
 
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
-import { ArrowRight, ChevronDown, Download, FileText, History, Loader2, Plus, Sparkle, X } from "lucide-react";
+import { ArrowRight, ChevronDown, History, Loader2, Plus, Sparkle, X } from "lucide-react";
 
 import { PlanCard, QuestionsCard, ResultCard } from "@/components/editor/ai-chat-cards";
 import { AiSessionHistory } from "@/components/editor/ai-session-history";
+import { SpecPanel } from "@/components/editor/spec-panel";
 import { useAiSession, type AiChatMessage } from "@/hooks/use-ai-session";
+import { useSpecGenerator } from "@/hooks/use-spec-generator";
 import {
   readAnswersPayload,
   readPlanPayload,
@@ -77,6 +79,8 @@ export function AiSidebar({ open, onClose, projectId }: AiSidebarProps) {
     removeSession,
     retryLoadSession,
   } = useAiSession(projectId);
+  // Lives here rather than in the Specs panel so a run keeps being followed (and downloads) while another tab is open.
+  const specGenerator = useSpecGenerator(projectId);
 
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
@@ -394,39 +398,7 @@ export function AiSidebar({ open, onClose, projectId }: AiSidebarProps) {
         </TabsPrimitive.Panel>
 
         <TabsPrimitive.Panel value="specs" className="min-h-0 flex-1 overflow-y-auto px-5 py-5 outline-none">
-          <div className="flex flex-col gap-4">
-            <button
-              type="button"
-              className={cn(
-                "flex h-11 w-full cursor-pointer items-center justify-center rounded-paper border border-ink bg-ink",
-                "font-brand text-sm font-semibold text-paper-cream shadow-flat",
-                "active:translate-y-px active:shadow-none",
-                focusClass,
-              )}
-            >
-              Generate Spec
-            </button>
-
-            <div className="space-y-4 rounded-paper border border-ink/20 bg-paper-bright p-4">
-              <div className="flex items-start gap-3">
-                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-ink-soft" />
-                <div>
-                  <p className="font-brand text-sm font-semibold text-ink">Realtime Chat Platform Spec</p>
-                  <p className="mt-1 font-brand text-sm text-ink-soft">
-                    Includes service boundaries, event flow, storage strategy, and deployment notes.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled
-                className="flex h-10 w-full cursor-not-allowed items-center justify-center gap-2 rounded-paper border border-ink bg-transparent font-brand text-sm font-medium text-ink opacity-40"
-              >
-                <Download className="h-4 w-4" />
-                Download
-              </button>
-            </div>
-          </div>
+          <SpecPanel {...specGenerator} />
         </TabsPrimitive.Panel>
       </TabsPrimitive.Root>
     </aside>

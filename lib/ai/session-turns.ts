@@ -29,6 +29,7 @@ import {
   MAX_MESSAGES_PER_SESSION,
   toSessionTitle,
 } from "@/lib/ai/session-store";
+import { describeRunFailure } from "@/lib/ai/run-failure";
 import { prisma } from "@/lib/prisma";
 import type { designAgentTask } from "@/src/trigger/design-agent";
 import type {
@@ -123,26 +124,13 @@ function failedOutcome(content: string): TurnOutcome {
   return { kind: "ERROR", status: "FAILED", content };
 }
 
-/**
- * Turns a failed run's error into something a user can act on. Raw provider
- * errors (quota details, retry counts, URLs) are logged, never stored.
- */
-function describeRunFailure(runId: string, message: string | undefined): string {
+/** Logs a failed run's raw error and returns the message stored for the user. */
+function describeFailedRun(runId: string, message: string | undefined): string {
   console.error("[ai-sessions] design-agent run failed", runId, message);
-
-  if (!message) {
-    return GENERIC_RUN_ERROR;
-  }
-  if (/quota|rate.?limit|too many requests|\b429\b/i.test(message)) {
-    return "Draftly AI has hit its usage limit for the moment. Wait a minute and try again.";
-  }
-  if (/high demand|overloaded|unavailable|\b503\b/i.test(message)) {
-    return "Draftly AI is busy right now. Try again in a moment.";
-  }
-  if (/timed? ?out|timeout|deadline/i.test(message)) {
-    return "The design agent took too long to respond. Try again.";
-  }
-  return GENERIC_RUN_ERROR;
+  return describeRunFailure(message, {
+    generic: GENERIC_RUN_ERROR,
+    timeout: "The design agent took too long to respond. Try again.",
+  });
 }
 
 function outcomeFromResult(result: DesignAgentResult): TurnOutcome {
@@ -243,7 +231,7 @@ async function settleTurn(sessionId: string, messageId: string, runId: string): 
   } else if (run.isCancelled) {
     outcome = failedOutcome("The design run was cancelled.");
   } else if (run.isFailed) {
-    outcome = failedOutcome(describeRunFailure(runId, run.error?.message));
+    outcome = failedOutcome(describeFailedRun(runId, run.error?.message));
   } else {
     return false;
   }

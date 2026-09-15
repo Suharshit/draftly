@@ -67,8 +67,17 @@ Ghost AI is a real-time collaborative system design workspace. Users describe a 
 ### Spec Generation
 
 - The current canvas graph is converted into a Markdown technical specification.
-- Specs are persisted as files and linked to the project in the database.
-- Users can view and download generated specs.
+- Owners and collaborators generate a spec from the **Specs** tab in the AI sidebar. It runs in the background and
+  downloads automatically as `{project-name}-spec.md` when ready; **Download .md** fetches the latest spec again.
+- The document contains an overview and goals, key decisions highlighted as callouts (with rationale, alternatives,
+  trade-offs, the components involved, and whether each was recorded during AI design, stated on the canvas, or
+  inferred), one section per group of connected components with a Mermaid diagram, component table, flow and notes,
+  a component reference, a connections table, and risks and open questions.
+- Diagrams, tables, and connections are built from the canvas in code; the model writes only the explanations and
+  cannot add components or connections. Decisions recorded in the requesting user's AI design sessions are included.
+- One spec per project: generating again replaces it. The Markdown is persisted in blob storage and linked to the
+  project in the database. Spec history is out of scope.
+- An empty canvas, or one with more than 200 components, is rejected with a clear message.
 
 ## Scope
 

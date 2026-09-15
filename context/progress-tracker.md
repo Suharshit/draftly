@@ -10,7 +10,9 @@ Update this file whenever the current phase, active feature, or implementation s
 
 - Persistent, multi-turn AI design sessions (plan: storage → wire sessions → turn engine → UI cards → generation
   quality → docs). Steps 1 (storage, PR #21), 2 (sessions in the sidebar, PR #22) and 3 (clarify → plan → generate
-  turn engine) are done; next is step 4, question/plan/result cards in the sidebar.
+  turn engine, PR #23) are done; step 4 (question/plan/result cards in the sidebar) is built on
+  `feat/ai-agent-cards` and awaiting a live run; next is step 5, generation quality (canvas context, kickers,
+  fills, edge styles, validate-and-repair).
 - After that: the Specs tab (Generate Spec + automatic Markdown download), which remains inert.
 
 ## Completed
@@ -1333,7 +1335,42 @@ Update this file whenever the current phase, active feature, or implementation s
         timeout path is verified. Two worker runs on `gemini-3-flash-preview` got no response while a direct call took
         30.7s and `gemini-2.5-flash` runs through the same worker succeeded, which points to preview-model overload
         rather than code.
-    - Not yet verified: the full flow getting past the skip turn to a plan and a generated diagram through the Trigger
-      worker, with the fix. Both free-tier Gemini quotas on this key are used up (`gemini-3.5-flash` and
-      `gemini-2.5-flash`, 20 requests each); the last run failed on the first turn with the usage-limit message.
-      Re-run `verify-ai-turn-flow-e2e.ts` once quota resets or with a billed key.
+    - Verified end to end on 2026-09-16 on `gemini-3.5-flash-lite` through the restarted Trigger worker (run with the
+      step 4 branch, whose engine and task are unchanged from step 3): first message → 3 questions (15.8s); skip →
+      PLAN (12.3s) with 9 components, 4 flows, 3 decisions, and assumptions, phase `PLANNED`, brief stored, plan payload
+      valid; answers after the plan → 409; generate → RESULT "Added 9 components and 8 connections to the canvas."
+      (12.6s) carrying the plan's decisions, phase `COMPLETE`. Test project, room, sessions, and TaskRuns removed.
+- AI sessions, step 4: question, plan, and result cards in the AI sidebar (2026-09-16, branch `feat/ai-agent-cards`):
+    - Local testing model is now `gemini-3.5-flash-lite` (`.env.local`, not committed).
+    - `lib/ai/agent-schema.ts` (client-safe) now also holds `TurnInput`, `GENERATE_TURN_TEXT` / `SKIP_TURN_TEXT`, and
+      payload readers (`readReplyPayload`, `readQuestionsPayload`, `readAnswersPayload`, `readPlanPayload`,
+      `readResultPayload`) used by both the server and the sidebar. `session-turns.ts` uses them instead of its own
+      copies, and QUESTIONS / PLAN payloads now also store the agent's `reply` (older messages read as an empty intro).
+    - `hooks/use-ai-session.ts`: `sendTurn(input)` for `message`, `answers`, `generate`, and `skip` (`sendPrompt` wraps
+      it); the optimistic user message matches what the server will store (answers paired with their questions, the
+      fixed generate/skip texts); every message now exposes `kind` and `payload`. Non-message turns require an existing
+      session.
+    - `components/editor/ai-chat-cards.tsx`:
+      - `QuestionsCard`: kicker, intro, numbered questions with their "why", option chips (`aria-pressed`, toggle),
+        and a free-text input per question (a typed answer wins over a chip). "Send answers" is disabled until one
+        question is answered; "Skip, plan with assumptions" sends a skip turn. Once answered, it renders read-only with
+        the chosen chip pressed and any typed answer shown.
+      - `PlanCard`: summary; key decisions highlighted on marker-amber paper with choice, rationale, and "Considered"
+        alternatives; components (first 6, "Show all N" toggle) with role labels; key flows; assumptions; and a
+        "Draw this plan" button with an "or describe changes below" hint.
+      - `ResultCard`: the canvas summary with a collapsible "Decisions · N" list.
+    - `ai-sidebar.tsx` renders assistant messages by kind (falling back to the text bubble when a payload doesn't
+      read). Only the newest non-failed assistant reply is interactive, and only while no turn is pending, which
+      mirrors the server's rules for open questions and the plan to draw. The composer placeholder changes to "Or answer
+      in your own words..." / "Describe changes to the plan..." while questions or a plan are open.
+    - Validation checks:
+      - `pnpm typecheck` and `pnpm lint` passed
+      - Static render checks (29, `react-dom/server`): open vs answered questions (chips, inputs, disabled send, skip,
+        labelled groups, pressed chip, typed answer, no controls), plan (intro, highlighted decisions, alternatives
+        line only when present, 6 of 8 components with show-all, flows, assumptions, draw action only when
+        interactive, empty sections omitted), result (collapsible decisions only when present), and the payload
+        readers (including step 2 results without decisions)
+      - DB turn checks (15) passed after the shared-reader refactor
+      - Live flow on `gemini-3.5-flash-lite` through the Trigger worker passed (message → questions → skip → plan →
+        generate; see the step 3 entry), including QUESTIONS and PLAN payloads that now store the agent's reply.
+    - Not yet verified: clicking through the cards in a signed-in browser (chips, typed answers, send, skip, draw).

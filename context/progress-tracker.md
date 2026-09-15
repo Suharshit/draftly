@@ -12,6 +12,12 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Completed
 
+> Spec file references: the prompt files named below (`context/feature-specs/NN-*.md`,
+> `context/fix/01-AI-sidebar-fix.md`, `context/current-issuse.md` / `current-issues.md`) were
+> removed on 2026-09-15 after every unit shipped. The names are kept as labels. Restore an
+> original with `git show f9711dc:<path>`; `docs.md` → Contributing → Spec index maps each unit
+> to what it delivered.
+
 - Fix unit `context/fix/01-AI-sidebar-fix.md` completed (AI sidebar wired to the design agent):
     - Installed `zod` pinned to an exact version (`4.6.2`) for `generateObject`.
     - Added shared generation contract in `lib/design-generation.ts`:
@@ -946,3 +952,19 @@ Update this file whenever the current phase, active feature, or implementation s
     - Keyframes `loader-dot`, `loader-swing`, `loader-crawl` and `--animate-loader-*` live in a `@theme` block at the end
       of `app/globals.css`.
     - Not used anywhere yet. `/docs` temporarily renders it full-screen for testing; replace when docs get content.
+- Added `docs.md` at the repo root as the source content for the future `/docs` site (2026-09-15):
+    - Built from every file in `context/` plus the current code, so examples match real routes, types and hooks.
+    - Organised like the docs sidebar wireframe: categories (Getting Started, Platform, AI, Authentication, Design
+      System, Reference, Contributing, Roadmap) → sections → pages, each with a status
+      (`STABLE` / `BETA` / `PREVIEW` / `PLANNED`), source spec numbers, guides and project examples.
+    - Includes a spec-to-docs index and a known-issues list taken from the tracker and the task notes.
+    - Docs only; no code changed. The `/docs` page still renders `DraftlyLoader`.
+- Filled `docs.md` gaps and retired the shipped spec prompt files (2026-09-15):
+    - Added to `docs.md`: "What is Draftly" (goals, 10-step core user flow with status, success criteria),
+      product layout patterns, a full Architecture page (stack, boundaries, storage & access, invariants),
+      and "Decisions & history" (architecture decisions and a dated change history).
+    - Deleted 24 files from `context/`: `feature-specs/01`–`22`, `fix/01-AI-sidebar-fix.md`, and
+      `current-issuse.md`. Every unit was already logged here and indexed in `docs.md`. Originals are
+      recoverable with `git show f9711dc:<path>`.
+    - Spec names in this file stay as labels (see the note at the top of "Completed"). `context/` now holds
+      only the six `AGENTS.md` context files plus the gitignored `things-to-rember.md`.

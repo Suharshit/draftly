@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import type { SidebarProject } from "@/lib/project-data";
@@ -21,6 +21,7 @@ export interface ProjectActionsController {
   selectedProject: SidebarProject | null;
   projectName: string;
   roomIdPreview: string;
+  /** True from submit until the follow-up navigation or refresh has rendered. */
   isLoading: boolean;
   setProjectName: (value: string) => void;
   openCreateDialog: () => void;
@@ -60,7 +61,10 @@ export function useProjectActions(
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [projectName, setProjectName] = useState("");
   const [createSuffix, setCreateSuffix] = useState(createShortSuffix);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isRequesting, setIsRequesting] = useState(false);
+  // Router updates run in a transition, so the dialog stays busy (and open) until the new UI renders.
+  const [isNavigating, startNavigation] = useTransition();
+  const isLoading = isRequesting || isNavigating;
 
   const selectedProject = useMemo(
     () => ownedProjects.find((project) => project.id === selectedProjectId) ?? null,
@@ -101,16 +105,24 @@ export function useProjectActions(
     setActiveDialog("delete");
   };
 
+  // A dialog can't be dismissed mid-action, otherwise a finished create could still navigate away.
   const closeDialog = () => {
+    if (isLoading) {
+      return;
+    }
+
     setActiveDialog(null);
-    setIsLoading(false);
   };
 
   const submitCreate = async () => {
+    if (isLoading) {
+      return;
+    }
+
     const nextName = projectName.trim();
     const roomId = roomIdPreview;
 
-    setIsLoading(true);
+    setIsRequesting(true);
     try {
       const response = await fetch("/api/projects", {
         method: "POST",
@@ -128,20 +140,22 @@ export function useProjectActions(
       }
 
       const payload = (await response.json()) as CreateProjectResponse;
-      closeDialog();
-      router.push(`/editor/${payload.project.id}`);
-      router.refresh();
+      startNavigation(() => {
+        setActiveDialog(null);
+        router.push(`/editor/${payload.project.id}`);
+        router.refresh();
+      });
     } finally {
-      setIsLoading(false);
+      setIsRequesting(false);
     }
   };
 
   const submitRename = async () => {
-    if (!selectedProject) {
+    if (!selectedProject || isLoading) {
       return;
     }
 
-    setIsLoading(true);
+    setIsRequesting(true);
     try {
       const response = await fetch(`/api/projects/${selectedProject.id}`, {
         method: "PATCH",
@@ -157,19 +171,21 @@ export function useProjectActions(
         return;
       }
 
-      closeDialog();
-      router.refresh();
+      startNavigation(() => {
+        setActiveDialog(null);
+        router.refresh();
+      });
     } finally {
-      setIsLoading(false);
+      setIsRequesting(false);
     }
   };
 
   const submitDelete = async () => {
-    if (!selectedProject) {
+    if (!selectedProject || isLoading) {
       return;
     }
 
-    setIsLoading(true);
+    setIsRequesting(true);
     try {
       const response = await fetch(`/api/projects/${selectedProject.id}`, {
         method: "DELETE",
@@ -179,18 +195,16 @@ export function useProjectActions(
         return;
       }
 
-      closeDialog();
-
-      const activeWorkspaceProjectId = getActiveWorkspaceProjectId(pathname);
-      if (activeWorkspaceProjectId === selectedProject.id) {
-        router.push("/editor");
+      const isDeletingActiveProject = getActiveWorkspaceProjectId(pathname) === selectedProject.id;
+      startNavigation(() => {
+        setActiveDialog(null);
+        if (isDeletingActiveProject) {
+          router.push("/editor");
+        }
         router.refresh();
-        return;
-      }
-
-      router.refresh();
+      });
     } finally {
-      setIsLoading(false);
+      setIsRequesting(false);
     }
   };
 

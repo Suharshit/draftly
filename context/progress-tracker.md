@@ -8,7 +8,9 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Implement the Specs tab (Generate Spec + download), which remains inert.
+- Persistent, multi-turn AI design sessions (plan: storage → wire sessions → turn engine → UI cards → generation
+  quality → docs). Step 1 (storage) is done; next is step 2, wiring the existing generation to stored sessions.
+- After that: the Specs tab (Generate Spec + automatic Markdown download), which remains inert.
 
 ## Completed
 
@@ -1160,3 +1162,36 @@ Update this file whenever the current phase, active feature, or implementation s
     - `project-dialogs.tsx`: primary buttons show a `Loader2` spinner with "Creating…", "Saving…",
       "Deleting…" and `aria-busy`; name inputs are disabled while loading.
     - Type check and lint pass. Not checked in a browser.
+- AI sessions, step 1: storage for persistent design agent chats (2026-09-15):
+    - Why: the AI sidebar kept its chat in React state only (`useDesignAgent` `useState`), so a reload lost the
+      transcript and any in-flight run, and every prompt reached the model with no history.
+    - `prisma/models/ai-session.prisma`: `AiSession` (projectId → `Project` cascade, userId, title, phase
+      `CLARIFYING|PLANNED|GENERATING|COMPLETE`, `brief` JSON, `clarifyRounds`, `lastActivityAt`, `expiresAt`) and
+      `AiMessage` (sessionId cascade, role `USER|ASSISTANT`, kind `TEXT|QUESTIONS|ANSWERS|PLAN|RESULT|ERROR`, `content`,
+      `payload` JSON, unique `runId`, status `PENDING|COMPLETE|FAILED`). `Project.aiSessions` back-relation.
+      Migration `20260915163917_add_ai_sessions` (additive only) applied.
+    - `types/ai-session.ts`: Prisma-free wire types (`AiSessionSummary`, `AiSessionDetail`, `AiMessageDto`) and value
+      lists for the enums, for client use in step 2.
+    - `lib/ai/session-store.ts`: limits (7-day sliding TTL, 10 sessions per user per project, 60 messages per
+      session, 4,000-char messages, 80-char titles), `toSessionTitle`, `listSessions`, `createSession` (one
+      transaction that trims to the cap, dropping least recently active and expired), `getSession` (with transcript),
+      `deleteSession`, `deleteExpiredSessions`. Every read filters `expiresAt > now`, scoped to project + user.
+    - Routes (Clerk auth + `getAccessibleProject`; sessions private to their creator, others' ids return 404):
+      - `GET/POST /api/projects/[projectId]/ai-sessions` — list mine / create (optional `title`, 201).
+      - `GET/DELETE /api/projects/[projectId]/ai-sessions/[sessionId]` — session + messages / delete (204).
+      - `GET /api/cron/ai-sessions/cleanup` — deletes expired sessions; requires `Authorization: Bearer $CRON_SECRET`
+        (constant-time compare, 401 when unset or wrong). `/api/cron(.*)` added to the public routes in `proxy.ts`.
+    - `vercel.json` (new): daily cron at 03:00 UTC. `CRON_SECRET` added to `.env.example`; it must also be set in
+      Vercel project env for the cron to authenticate.
+    - `architecture-context.md` storage model documents session retention.
+    - Not wired to the UI yet; `useDesignAgent` and `/api/ai/design` are unchanged.
+    - Validation checks:
+      - `pnpm typecheck` and `pnpm lint` passed (2 pre-existing warnings in vendored skill templates)
+      - A tsx script against the database confirmed: title normalisation, 7-day expiry, the 10-session cap deletes
+        the oldest rows, other users can't read/delete or count toward the cap, transcripts load, expired sessions
+        are hidden from get/list, cleanup deletes them with messages cascading, and project delete cascades. Test
+        rows were removed.
+      - Against the running dev server: signed-out requests to the session routes are stopped by Clerk (404 / 307
+        to sign-in) before the handler; the cron route is reachable and returns 401 JSON with no or a wrong bearer.
+    - Not yet exercised: the session routes over HTTP with a signed-in user, and the cron route with the correct
+      secret (the dev server had no `CRON_SECRET`).

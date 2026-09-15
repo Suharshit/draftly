@@ -1,0 +1,67 @@
+// AI chat sessions for the design agent. Rows are short-lived: every session
+// carries an `expiresAt` that slides forward on activity, and a daily cron
+// deletes expired sessions (messages cascade).
+
+enum AiSessionPhase {
+  CLARIFYING
+  PLANNED
+  GENERATING
+  COMPLETE
+}
+
+enum AiMessageRole {
+  USER
+  ASSISTANT
+}
+
+enum AiMessageKind {
+  TEXT
+  QUESTIONS
+  ANSWERS
+  PLAN
+  RESULT
+  ERROR
+}
+
+enum AiMessageStatus {
+  PENDING
+  COMPLETE
+  FAILED
+}
+
+model AiSession {
+  id             String         @id @default(cuid())
+  projectId      String
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId         String
+  title          String
+  phase          AiSessionPhase @default(CLARIFYING)
+  // Running requirements summary the agent keeps between turns.
+  brief          Json?
+  clarifyRounds  Int            @default(0)
+  lastActivityAt DateTime       @default(now())
+  expiresAt      DateTime
+  createdAt      DateTime       @default(now())
+  messages       AiMessage[]
+
+  @@index([projectId, userId, lastActivityAt])
+  @@index([expiresAt])
+}
+
+model AiMessage {
+  id        String          @id @default(cuid())
+  sessionId String
+  session   AiSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      AiMessageRole
+  kind      AiMessageKind
+  // Display text, capped by the API.
+  content   String
+  // Structured part of the message: questions, answers, plan, or result.
+  payload   Json?
+  // Trigger.dev run producing this message, while it is PENDING.
+  runId     String?         @unique
+  status    AiMessageStatus @default(COMPLETE)
+  createdAt DateTime        @default(now())
+
+  @@index([sessionId, createdAt])
+}

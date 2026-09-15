@@ -22,6 +22,11 @@
 
 - **Database**: Stores project metadata, user ownership, collaborator links, and references to generated artifacts.
 - **File System / Blob Storage**: Stores large generated artifacts including Markdown technical specs and canvas snapshots.
+- **AI sessions (database, short-lived)**: Design agent chats live in `AiSession` / `AiMessage` (small text + JSON payloads).
+  Sessions are private to the user who created them within a project, expire 7 days after last activity
+  (`expiresAt` slides forward on activity), are capped at 10 per user per project and 60 messages each, and are
+  removed by a daily Vercel Cron (`/api/cron/ai-sessions/cleanup`, `CRON_SECRET`). Reads ignore expired rows, so
+  expiry holds even before cleanup runs. Deleting a project cascades to its sessions.
 
 ## Auth and Access Model
 

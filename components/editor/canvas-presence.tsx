@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
-import { useUser, UserButton } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { useOthers } from "@liveblocks/react/suspense";
 import { useStore, ViewportPortal } from "@xyflow/react";
 import { Bot } from "lucide-react";
 
+import { UserMenuButton } from "@/components/editor/user-menu-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
@@ -96,14 +97,7 @@ export function CanvasPresenceOverlay({ isAiSidebarOpen }: CanvasPresenceOverlay
         </>
       ) : null}
       <PanelDivider />
-      <UserButton
-        appearance={{
-          elements: {
-            userButtonAvatarBox: "h-8 w-8",
-            avatarBox: "h-8 w-8 border border-ink/40",
-          },
-        }}
-      />
+      <UserMenuButton avatarSize="2rem" />
     </div>
   );
 }
@@ -127,9 +121,9 @@ export function CanvasThinkingIndicator() {
 
   return (
     <div className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2">
-      <div className="flex items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)]/90 px-2.5 py-1.5 backdrop-blur-sm">
-        <Bot className="h-4 w-4 animate-pulse text-[var(--accent-primary)]" aria-hidden="true" />
-        <p className="text-xs text-[var(--text-muted)]" aria-live="polite">
+      <div className="flex items-center gap-2 rounded-md border border-(--border-default) bg-(--bg-surface)/90 px-2.5 py-1.5 backdrop-blur-sm">
+        <Bot className="h-4 w-4 animate-pulse text-(--accent-primary)" aria-hidden="true" />
+        <p className="text-xs text-(--text-muted)" aria-live="polite">
           {thinkingCount === 1
             ? "A collaborator is generating a design…"
             : `${thinkingCount} collaborators are generating designs…`}
@@ -182,7 +176,7 @@ export function LiveCursors() {
               />
             </svg>
             <div
-              className="mt-1 inline-flex rounded-sm px-1.5 py-0.5 text-xs font-medium text-[var(--text-primary)]"
+              className="mt-1 inline-flex rounded-sm px-1.5 py-0.5 text-xs font-medium text-(--text-primary)"
               style={{ backgroundColor: color }}
             >
               {participant.info.name}

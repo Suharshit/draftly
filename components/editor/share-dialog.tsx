@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Copy, Loader2, Trash2, UserPlus } from "lucide-react";
+import { Check, Copy, Loader2, Trash2 } from "lucide-react";
 
-import { EditorDialogShell } from "@/components/editor/editor-dialog-shell";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  PaperDialog,
+  paperFocusClass,
+  paperInputClass,
+  paperPrimaryButtonClass,
+  paperSecondaryButtonClass,
+} from "@/components/editor/paper-dialog";
+import { cn } from "@/lib/utils";
 
 interface ShareCollaborator {
   id: string;
@@ -188,92 +193,118 @@ export function ShareDialog({ open, onOpenChange, projectId }: ShareDialogProps)
   };
 
   return (
-    <EditorDialogShell
+    <PaperDialog
       open={open}
-      onOpenChange={onOpenChange}
-      title="Share Project"
+      onClose={() => onOpenChange(false)}
+      title="Share project"
       description={canManage ? "Invite and manage collaborators for this workspace." : "Collaborators on this workspace."}
       footer={
         <>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+          <button type="button" className={paperSecondaryButtonClass} onClick={() => onOpenChange(false)}>
             Close
-          </Button>
-          <Button type="button" variant="outline" onClick={() => void copyLink()}>
-            <Copy className="h-4 w-4" />
-            {copied ? "Copied!" : "Copy Link"}
-          </Button>
+          </button>
+          <button type="button" className={paperSecondaryButtonClass} onClick={() => void copyLink()}>
+            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copied ? "Copied!" : "Copy link"}
+          </button>
         </>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-5">
         {canManage ? (
           <form
-            className="flex gap-2"
+            className="flex gap-3"
             onSubmit={(event) => {
               event.preventDefault();
               void inviteCollaborator();
             }}
           >
-            <Input
+            <input
+              aria-label="Collaborator email"
               value={inviteEmail}
               onChange={(event) => setInviteEmail(event.target.value)}
               placeholder="teammate@example.com"
               type="email"
               disabled={isSaving}
+              className={paperInputClass}
             />
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+            <button type="submit" disabled={isSaving} className={cn(paperPrimaryButtonClass, "h-12")}>
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
               Invite
-            </Button>
+            </button>
           </form>
         ) : null}
 
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {error ? (
+          <p role="alert" className="font-brand text-sm text-paper-pin-red">
+            {error}
+          </p>
+        ) : null}
 
-        <div className="max-h-72 overflow-y-auto rounded-md border border-border">
-          {isLoading ? (
-            <div className="flex items-center justify-center p-6 text-sm text-muted-foreground">Loading collaborators...</div>
-          ) : collaborators.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">No collaborators yet.</div>
-          ) : (
-            <ul className="divide-y divide-border">
-              {collaborators.map((collaborator) => {
-                const label = collaborator.name ?? collaborator.email;
-                return (
-                  <li key={collaborator.id} className="flex items-center justify-between px-3 py-2">
-                    <div className="flex min-w-0 items-center gap-3">
-                      {collaborator.avatarUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={collaborator.avatarUrl} alt={label} className="h-8 w-8 rounded-full object-cover" />
-                      ) : (
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-xs font-medium text-foreground">
-                          {getInitials(label)}
+        <section aria-label="Collaborators" className="rounded-paper border border-ink/15 bg-paper-cream">
+          <div className="flex items-center justify-between border-b border-ink/15 px-4 py-2.5 font-mono text-chrome tracking-chrome text-ink-soft uppercase">
+            <span>Collaborators</span>
+            <span>{isLoading ? "–" : collaborators.length}</span>
+          </div>
+
+          <div className="max-h-72 overflow-y-auto">
+            {isLoading ? (
+              <div className="flex items-center justify-center gap-2 p-8 font-brand text-sm text-ink-soft">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Loading collaborators…
+              </div>
+            ) : collaborators.length === 0 ? (
+              <p className="p-8 text-center font-brand text-sm text-ink-soft">No collaborators yet.</p>
+            ) : (
+              <ul className="divide-y divide-ink/10">
+                {collaborators.map((collaborator) => {
+                  const label = collaborator.name ?? collaborator.email;
+                  return (
+                    <li key={collaborator.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        {collaborator.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={collaborator.avatarUrl}
+                            alt={label}
+                            className="h-9 w-9 shrink-0 rounded-full border border-ink object-cover"
+                          />
+                        ) : (
+                          <div
+                            aria-hidden="true"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink bg-paper-accent-marker-amber font-brand text-xs font-semibold text-ink"
+                          >
+                            {getInitials(label)}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate font-brand text-sm font-semibold text-ink">{label}</p>
+                          <p className="truncate font-brand text-xs text-ink-soft">{collaborator.email}</p>
                         </div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">{label}</p>
-                        <p className="truncate text-xs text-muted-foreground">{collaborator.email}</p>
                       </div>
-                    </div>
-                    {canManage ? (
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={() => void removeCollaborator(collaborator.id)}
-                        disabled={isSaving}
-                        aria-label={`Remove ${collaborator.email}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
+                      {canManage ? (
+                        <button
+                          type="button"
+                          onClick={() => void removeCollaborator(collaborator.id)}
+                          disabled={isSaving}
+                          aria-label={`Remove ${collaborator.email}`}
+                          className={cn(
+                            "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-paper text-ink-soft transition-colors",
+                            "hover:bg-ink/5 hover:text-paper-pin-red disabled:cursor-not-allowed disabled:opacity-50",
+                            paperFocusClass,
+                          )}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </section>
       </div>
-    </EditorDialogShell>
+    </PaperDialog>
   );
 }

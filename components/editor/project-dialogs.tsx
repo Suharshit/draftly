@@ -1,8 +1,13 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { EditorDialogShell } from "@/components/editor/editor-dialog-shell";
+import {
+  PaperDialog,
+  paperDestructiveButtonClass,
+  paperInputClass,
+  paperLabelClass,
+  paperPrimaryButtonClass,
+  paperSecondaryButtonClass,
+} from "@/components/editor/paper-dialog";
 
 interface ProjectDialogsProps {
   activeDialog: "create" | "rename" | "delete" | null;
@@ -35,96 +40,96 @@ export function ProjectDialogs({
 
   return (
     <>
-      <EditorDialogShell
+      <PaperDialog
         open={isCreateOpen}
-        onOpenChange={(open) => {
-          if (!open) onClose();
-        }}
-        title="Create Project"
+        onClose={onClose}
+        title="Create project"
         description="Name your project to create a new architecture workspace."
         footer={
           <>
-            <Button type="button" variant="ghost" onClick={onClose} disabled={isLoading}>
+            <button type="button" className={paperSecondaryButtonClass} onClick={onClose} disabled={isLoading}>
               Cancel
-            </Button>
-            <Button type="submit" form="create-project-form" disabled={isLoading}>
-              Create
-            </Button>
+            </button>
+            <button type="submit" form="create-project-form" className={paperPrimaryButtonClass} disabled={isLoading}>
+              Create project
+            </button>
           </>
         }
       >
         <form
           id="create-project-form"
-          className="space-y-4"
+          className="space-y-3"
           onSubmit={(event) => {
             event.preventDefault();
             void onCreate();
           }}
         >
-          <div className="flex flex-col space-y-2">
-            <label htmlFor="create-project-name" className="text-sm font-medium text-foreground">
-              Project name
-            </label>
-            <Input
-              id="create-project-name"
-              value={projectName}
-              onChange={(event) => onProjectNameChange(event.target.value)}
-              placeholder="e.g. Payment Gateway Modernization"
-              autoFocus
-            />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Room ID preview: <span className="font-mono text-foreground">{roomIdPreview}</span>
+          <label htmlFor="create-project-name" className={paperLabelClass}>
+            Project name
+          </label>
+          <input
+            id="create-project-name"
+            value={projectName}
+            onChange={(event) => onProjectNameChange(event.target.value)}
+            placeholder="e.g. Payment Gateway Modernization"
+            className={paperInputClass}
+            autoFocus
+          />
+          <p className="flex flex-wrap items-baseline gap-x-2.5 font-mono text-xs">
+            <span className="tracking-chrome text-ink-soft uppercase">Room ID</span>
+            <span className="text-ink">{roomIdPreview}</span>
           </p>
         </form>
-      </EditorDialogShell>
+      </PaperDialog>
 
-      <EditorDialogShell
+      <PaperDialog
         open={isRenameOpen}
-        onOpenChange={(open) => {
-          if (!open) onClose();
-        }}
-        title="Rename Project"
+        onClose={onClose}
+        title="Rename project"
         description={
           selectedProjectName ? `Current project name: ${selectedProjectName}` : "Update the current project name."
         }
         footer={
           <>
-            <Button type="button" variant="ghost" onClick={onClose} disabled={isLoading}>
+            <button type="button" className={paperSecondaryButtonClass} onClick={onClose} disabled={isLoading}>
               Cancel
-            </Button>
-            <Button type="submit" form="rename-project-form" disabled={isLoading || projectName.trim().length === 0}>
+            </button>
+            <button
+              type="submit"
+              form="rename-project-form"
+              className={paperPrimaryButtonClass}
+              disabled={isLoading || projectName.trim().length === 0}
+            >
               Save
-            </Button>
+            </button>
           </>
         }
       >
         <form
           id="rename-project-form"
-          className="flex flex-col space-y-2"
+          className="space-y-3"
           onSubmit={(event) => {
             event.preventDefault();
             void onRename();
           }}
         >
-          <label htmlFor="rename-project-name" className="text-sm font-medium text-foreground">
+          <label htmlFor="rename-project-name" className={paperLabelClass}>
             Project name
           </label>
-          <Input
+          <input
             id="rename-project-name"
             value={projectName}
             onChange={(event) => onProjectNameChange(event.target.value)}
+            className={paperInputClass}
             autoFocus
           />
         </form>
-      </EditorDialogShell>
+      </PaperDialog>
 
-      <EditorDialogShell
+      <PaperDialog
         open={isDeleteOpen}
-        onOpenChange={(open) => {
-          if (!open) onClose();
-        }}
-        title="Delete Project"
+        onClose={onClose}
+        title="Delete project"
         description={
           selectedProjectName
             ? `Delete "${selectedProjectName}" permanently? This action cannot be undone.`
@@ -132,16 +137,20 @@ export function ProjectDialogs({
         }
         footer={
           <>
-            <Button type="button" variant="ghost" onClick={onClose} disabled={isLoading}>
+            <button type="button" className={paperSecondaryButtonClass} onClick={onClose} disabled={isLoading}>
               Cancel
-            </Button>
-            <Button type="button" variant="destructive" onClick={() => void onDelete()} disabled={isLoading}>
-              Delete Project
-            </Button>
+            </button>
+            <button
+              type="button"
+              className={paperDestructiveButtonClass}
+              onClick={() => void onDelete()}
+              disabled={isLoading}
+            >
+              Delete project
+            </button>
           </>
         }
       />
     </>
   );
 }
-

@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { UserButton } from "@clerk/nextjs";
 import { Bot, PanelLeftClose, PanelLeftOpen, Share2 } from "lucide-react";
 
+import { UserMenuButton } from "@/components/editor/user-menu-button";
 import type { CanvasSaveStatus } from "@/hooks/use-canvas-autosave";
 import { cn } from "@/lib/utils";
 
@@ -120,13 +120,7 @@ export function EditorNavbar({
             Share
           </button>
 
-          <UserButton
-            appearance={{
-              elements: {
-                avatarBox: "size-10 border border-ink/40",
-              },
-            }}
-          />
+          <UserMenuButton avatarSize="2.5rem" />
         </div>
       </div>
     </header>

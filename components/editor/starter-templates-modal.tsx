@@ -1,12 +1,16 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import { TriangleAlert } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { EditorDialogShell } from "@/components/editor/editor-dialog-shell";
-import type { CanvasNode } from "@/types/canvas";
+import {
+  PaperDialog,
+  paperPrimaryButtonClass,
+  paperSecondaryButtonClass,
+} from "@/components/editor/paper-dialog";
 import type { CanvasTemplate } from "@/components/editor/starter-templates";
+import { cn } from "@/lib/utils";
+import { resolveEdgeColor, resolveNodeFill, type CanvasNode } from "@/types/canvas";
 
 interface StarterTemplatesModalProps {
   open: boolean;
@@ -21,8 +25,7 @@ interface NodeFrame {
   y: number;
   width: number;
   height: number;
-  bg: string;
-  text: string;
+  fill: string;
   shape: string;
 }
 
@@ -35,8 +38,7 @@ function getNodeFrame(node: CanvasNode): NodeFrame {
     y: node.position.y,
     width,
     height,
-    bg: node.data.color ?? "var(--bg-surface)",
-    text: node.data.textColor ?? "var(--text-primary)",
+    fill: resolveNodeFill(node.data.color).value,
     shape: node.data.shape ?? "rectangle",
   };
 }
@@ -44,7 +46,6 @@ function getNodeFrame(node: CanvasNode): NodeFrame {
 function getNodeShapeStyle(shape: string): CSSProperties {
   switch (shape) {
     case "circle":
-      return { borderRadius: "9999px" };
     case "pill":
       return { borderRadius: "9999px" };
     case "diamond":
@@ -54,9 +55,19 @@ function getNodeShapeStyle(shape: string): CSSProperties {
     case "cylinder":
       return { borderRadius: "50% / 16%" };
     default:
-      return { borderRadius: 6 };
+      return { borderRadius: 2 };
   }
 }
+
+/** Clip-path shapes lose their CSS border, so they get an ink backing layer instead. */
+function isClippedShape(shape: string) {
+  return shape === "diamond" || shape === "hexagon";
+}
+
+const previewGroundStyle: CSSProperties = {
+  backgroundImage: "radial-gradient(color-mix(in srgb, var(--ink) 22%, transparent) 1px, transparent 1px)",
+  backgroundSize: "12px 12px",
+};
 
 function TemplatePreview({ template }: { template: CanvasTemplate }) {
   const nodes = template.nodes.map(getNodeFrame);
@@ -90,8 +101,15 @@ function TemplatePreview({ template }: { template: CanvasTemplate }) {
     };
   };
 
+  // Node frames are laid out in the 640x360 view box, then placed as percentages of the preview.
+  const toPercent = (value: number, total: number) => `${(value / total) * 100}%`;
+
   return (
-    <div className="relative aspect-video overflow-hidden rounded-md border border-(--border-default) bg-(--bg-base)">
+    <div
+      aria-hidden="true"
+      className="relative aspect-video overflow-hidden rounded-paper border border-ink/20 bg-paper-cream"
+      style={previewGroundStyle}
+    >
       <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${viewWidth} ${viewHeight}`}>
         {template.edges.map((edge) => {
           const source = getCenter(edge.source);
@@ -104,7 +122,7 @@ function TemplatePreview({ template }: { template: CanvasTemplate }) {
               y1={source.y}
               x2={target.x}
               y2={target.y}
-              stroke="var(--border-default)"
+              stroke={resolveEdgeColor(edge.data?.colorId).value}
               strokeWidth={2}
               strokeLinecap="round"
             />
@@ -112,25 +130,27 @@ function TemplatePreview({ template }: { template: CanvasTemplate }) {
         })}
       </svg>
       {nodes.map((node) => {
-        const left = offsetX + (node.x - minX) * scale;
-        const top = offsetY + (node.y - minY) * scale;
-        const width = node.width * scale;
-        const height = node.height * scale;
+        const shapeStyle = getNodeShapeStyle(node.shape);
+        const frameStyle: CSSProperties = {
+          left: toPercent(offsetX + (node.x - minX) * scale, viewWidth),
+          top: toPercent(offsetY + (node.y - minY) * scale, viewHeight),
+          width: toPercent(node.width * scale, viewWidth),
+          height: toPercent(node.height * scale, viewHeight),
+        };
+
+        if (isClippedShape(node.shape)) {
+          return (
+            <div key={node.id} className="absolute bg-ink p-px" style={{ ...frameStyle, ...shapeStyle }}>
+              <div className="h-full w-full" style={{ background: node.fill, ...shapeStyle }} />
+            </div>
+          );
+        }
 
         return (
           <div
             key={node.id}
-            className="absolute border text-[10px] font-medium"
-            style={{
-              left,
-              top,
-              width,
-              height,
-              background: node.bg,
-              color: node.text,
-              borderColor: "var(--border-default)",
-              ...getNodeShapeStyle(node.shape),
-            }}
+            className="absolute border border-ink"
+            style={{ ...frameStyle, background: node.fill, ...shapeStyle }}
           />
         );
       })}
@@ -145,39 +165,58 @@ export function StarterTemplatesModal({
   templates,
 }: StarterTemplatesModalProps) {
   return (
-    <EditorDialogShell
+    <PaperDialog
       open={open}
-      onOpenChange={onOpenChange}
-      title="Starter Templates"
+      onClose={() => onOpenChange(false)}
+      title="Starter templates"
       description="Import a prebuilt architecture pattern into your canvas."
       contentClassName="w-[min(96vw,1000px)] sm:max-w-none"
+      footer={
+        <button type="button" className={paperSecondaryButtonClass} onClick={() => onOpenChange(false)}>
+          Close
+        </button>
+      }
     >
-      <p className="rounded-md border border-(--state-error)/40 bg-[color-mix(in_srgb,var(--state-error)_12%,transparent)] px-3 py-2 text-xs text-(--text-primary)">
-        Importing a template clears the current canvas before loading the selected pattern.
-      </p>
+      <div className="space-y-5">
+        <p
+          role="note"
+          className="flex items-start gap-2.5 rounded-paper border border-ink/15 border-l-2 border-l-paper-pin-red bg-paper-cream px-3.5 py-2.5 font-brand text-sm text-ink"
+        >
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-paper-pin-red" aria-hidden="true" />
+          Importing a template clears the current canvas before loading the selected pattern.
+        </p>
 
-      <ScrollArea className="h-[36vh] pr-3">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-2">
+        <div className="flex items-center justify-between font-mono text-chrome tracking-chrome text-ink-soft uppercase">
+          <span>Templates</span>
+          <span>{templates.length}</span>
+        </div>
+
+        <ul className="-mr-3 grid max-h-[52vh] grid-cols-1 gap-5 overflow-y-auto pr-3 pb-1 md:grid-cols-3">
           {templates.map((template) => (
-            <div
+            <li
               key={template.id}
-              className="rounded-md border border-(--border-default) bg-(--bg-surface) p-3"
+              className="flex flex-col rounded-paper border border-ink bg-paper-bright p-4"
             >
-              <h3 className="text-sm font-semibold text-(--text-primary)">{template.name}</h3>
-              <p className="mt-1 text-xs text-(--text-muted)">{template.description}</p>
-              <div className="mt-3">
+              <p className="font-mono text-chrome tracking-chrome text-ink-soft uppercase">
+                {template.nodes.length} nodes · {template.edges.length} edges
+              </p>
+              <h3 className="mt-1.5 font-brand text-base font-semibold text-ink">{template.name}</h3>
+              <p className="mt-1 flex-1 font-brand text-sm text-ink-soft">{template.description}</p>
+              <div className="mt-4">
                 <TemplatePreview template={template} />
               </div>
-              <Button
-                className="mt-3 w-full"
+              <button
+                type="button"
+                className={cn(paperPrimaryButtonClass, "mt-4 w-full")}
                 onClick={() => onImport(template)}
+                aria-label={`Import ${template.name} template`}
               >
-                Import Template
-              </Button>
-            </div>
+                Import template
+              </button>
+            </li>
           ))}
-        </div>
-      </ScrollArea>
-    </EditorDialogShell>
+        </ul>
+      </div>
+    </PaperDialog>
   );
 }

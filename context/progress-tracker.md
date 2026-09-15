@@ -1080,3 +1080,39 @@ Update this file whenever the current phase, active feature, or implementation s
       (fill set via `style` so CSS variables resolve). Hover/selection thickens the line (2 to 3px) instead of
       switching to the old blue. The old zinc default and per-palette rest/active markers are gone.
     - `canvas-control-bar.tsx`: the Edge row shows exactly those four labelled swatches.
+- Project dialogs restyled to the brand theme from the dialog wireframe (2026-09-15):
+    - `project-dialogs.tsx` no longer uses `EditorDialogShell`, `Button` or `Input` (all untouched). A local
+      `ProjectDialogFrame` builds on the `ui/dialog` primitives: paper-cream card, 1px ink border, `shadow-flat`, 2px
+      corners, semibold Archivo title with ink-soft description, ink X close button, and a footer strip
+      (`paper-cream-rule/40`, ink/15 top rule).
+    - Create: uppercase "Project name" label, ink-bordered paper-bright input, mono "ROOM ID" preview line,
+      outline Cancel + ink "Create project" buttons. Rename and Delete share the frame; Delete's confirm is pin-red.
+    - The popup radius uses `rounded-(--radius-paper)`, because `tailwind-merge` can't tell that `rounded-paper`
+      replaces the base `rounded-xl`.
+- Share dialog and user menu restyled to the brand theme from their wireframes (2026-09-15):
+    - New `components/editor/paper-dialog.tsx`: `PaperDialog` (paper-bright card, ink border, `shadow-flat`, 2px
+      corners, title/description, X close, cream footer strip) plus shared class constants for secondary, primary
+      and destructive buttons, labels and inputs. `project-dialogs.tsx` now uses it instead of a local frame.
+    - `share-dialog.tsx` uses `PaperDialog` (still not `EditorDialogShell`, `Button` or `Input`): email input + ink
+      Invite button, a cream COLLABORATORS box with a mono header and count, an amber-initials list with pin-red remove
+      hover, and Close / Copy link outline buttons. Fetching, invite and remove logic unchanged.
+    - New `components/editor/user-menu-button.tsx`: `UserMenuButton` wraps Clerk's `UserButton` with brand
+      `appearance` variables and element style objects (ink-bordered paper popover, flat shadow, larger preview avatar,
+      hairline-separated actions, cream "Secured by Clerk" footer). It uses style objects, not Tailwind classes, so
+      the styles win over Clerk's CSS-in-JS. It replaces the raw `UserButton` in `EditorNavbar` (2.5rem) and
+      `CanvasPresenceOverlay` (2rem). The provider's `dark` theme only sets variables, so these override it.
+      Clerk's "Manage account" profile modal is still dark.
+    - Type check and lint pass. Not checked in a browser.
+- Starter templates modal restyled to the brand theme (2026-09-15, no wireframe; follows the paper dialogs):
+    - `PaperDialog` gained optional `contentClassName` (merged onto the popup, used for width) and an optional
+      `footer` (the cream strip is skipped when omitted).
+    - `starter-templates-modal.tsx` uses `PaperDialog` at `min(96vw, 1000px)` with a Close footer. Contents: a cream
+      note with a pin-red left rule and warning icon ("Importing a template clears the current canvas…"), a mono
+      TEMPLATES count, and a native-scrolling 1/3-column grid (`max-h-[52vh]`, replaces `ScrollArea`) of ink-bordered
+      paper cards (mono "N nodes · M edges" kicker, semibold name, ink-soft description, ink "Import template" button).
+    - Previews look like the paper canvas: cream ground with ink dots, node fills from `resolveNodeFill()`,
+      1px ink borders (diamond/hexagon get an ink backing layer, since clip-path hides CSS borders), edge strokes
+      from `resolveEdgeColor()`. Frames use percentages of the 640x360 view box so they scale with the card.
+      Import behaviour is unchanged.
+    - `EditorDialogShell` has no users left; it is kept, not deleted.
+    - Type check and lint pass. Not checked in a browser.

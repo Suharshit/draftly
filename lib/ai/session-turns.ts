@@ -1,15 +1,42 @@
 import { ApiError, runs, tasks } from "@trigger.dev/sdk/v3";
+import { z } from "zod";
 
+import type { Prisma } from "@/app/generated/prisma/client";
+import {
+  AGENT_HISTORY_LIMIT,
+  clarifyQuestionSchema,
+  designAgentResultSchema,
+  designBriefSchema,
+  designPlanSchema,
+  formatAnswersText,
+  formatPlanText,
+  formatQuestionsText,
+  type AgentHistoryEntry,
+  type ClarifyAnswer,
+  type ClarifyQuestion,
+  type DesignAgentPayload,
+  type DesignAgentResult,
+  type DesignBrief,
+  type DesignPlan,
+  type TurnIntent,
+} from "@/lib/ai/agent-schema";
 import {
   computeExpiresAt,
   DEFAULT_SESSION_TITLE,
   getSession,
+  MAX_MESSAGE_LENGTH,
   MAX_MESSAGES_PER_SESSION,
   toSessionTitle,
 } from "@/lib/ai/session-store";
 import { prisma } from "@/lib/prisma";
 import type { designAgentTask } from "@/src/trigger/design-agent";
-import type { AiMessageKind, AiMessageStatus, AiSessionDetail, AiSessionPhase } from "@/types/ai-session";
+import type {
+  AiMessageDto,
+  AiMessageKind,
+  AiMessageStatus,
+  AiSessionDetail,
+  AiSessionPhase,
+} from "@/types/ai-session";
 
 // ---------------------------------------------------------------------------
 // Turns
@@ -40,24 +67,132 @@ export function summarizeDesignResult(nodeCount: number, edgeCount: number): str
   );
 }
 
+// ---------------------------------------------------------------------------
+// Reading the session back for the agent
+// ---------------------------------------------------------------------------
+
+function latestAssistantMessage(session: AiSessionDetail): AiMessageDto | undefined {
+  return session.messages.findLast((message) => message.role === "ASSISTANT" && message.status === "COMPLETE");
+}
+
+function readPayloadField(message: AiMessageDto | undefined, field: string): unknown {
+  const payload = message?.payload;
+  return typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>)[field] : undefined;
+}
+
+/** The most recent plan proposed in the session, if any. */
+function latestPlan(session: AiSessionDetail): DesignPlan | null {
+  const message = session.messages.findLast((entry) => entry.kind === "PLAN" && entry.status === "COMPLETE");
+  const parsed = designPlanSchema.safeParse(readPayloadField(message, "plan"));
+  return parsed.success ? parsed.data : null;
+}
+
+/** Questions still awaiting answers: only while they are the latest reply. */
+function openQuestions(session: AiSessionDetail): ClarifyQuestion[] {
+  const message = latestAssistantMessage(session);
+  if (message?.kind !== "QUESTIONS") {
+    return [];
+  }
+  const parsed = z.array(clarifyQuestionSchema).safeParse(readPayloadField(message, "questions"));
+  return parsed.success ? parsed.data : [];
+}
+
+function storedBrief(session: AiSessionDetail): DesignBrief | null {
+  const parsed = designBriefSchema.safeParse(session.brief);
+  return parsed.success ? parsed.data : null;
+}
+
+/** Completed transcript the model sees, oldest first. Failed replies are left out. */
+function agentHistory(session: AiSessionDetail): AgentHistoryEntry[] {
+  return session.messages
+    .filter((message) => message.status === "COMPLETE" && message.content.length > 0)
+    .map((message): AgentHistoryEntry => ({
+      role: message.role === "USER" ? "user" : "assistant",
+      content: message.content,
+    }))
+    .slice(-AGENT_HISTORY_LIMIT);
+}
+
+// ---------------------------------------------------------------------------
+// Settling
+// ---------------------------------------------------------------------------
+
 interface TurnOutcome {
   kind: AiMessageKind;
   status: AiMessageStatus;
   content: string;
-  payload?: { nodeCount: number; edgeCount: number };
-  phase: AiSessionPhase;
+  payload?: Prisma.InputJsonObject;
+  /** Omitted for failures, so a failed turn leaves the session where it was. */
+  phase?: AiSessionPhase;
+  brief?: DesignBrief;
+  countsClarifyRound?: boolean;
 }
 
 function failedOutcome(content: string): TurnOutcome {
-  return { kind: "ERROR", status: "FAILED", content, phase: "CLARIFYING" };
+  return { kind: "ERROR", status: "FAILED", content };
+}
+
+/**
+ * Turns a failed run's error into something a user can act on. Raw provider
+ * errors (quota details, retry counts, URLs) are logged, never stored.
+ */
+function describeRunFailure(runId: string, message: string | undefined): string {
+  console.error("[ai-sessions] design-agent run failed", runId, message);
+
+  if (!message) {
+    return GENERIC_RUN_ERROR;
+  }
+  if (/quota|rate.?limit|too many requests|\b429\b/i.test(message)) {
+    return "Draftly AI has hit its usage limit for the moment. Wait a minute and try again.";
+  }
+  if (/high demand|overloaded|unavailable|\b503\b/i.test(message)) {
+    return "Draftly AI is busy right now. Try again in a moment.";
+  }
+  if (/timed? ?out|timeout|deadline/i.test(message)) {
+    return "The design agent took too long to respond. Try again.";
+  }
+  return GENERIC_RUN_ERROR;
+}
+
+function outcomeFromResult(result: DesignAgentResult): TurnOutcome {
+  switch (result.action) {
+    case "ask":
+      return {
+        kind: "QUESTIONS",
+        status: "COMPLETE",
+        content: formatQuestionsText(result.reply, result.questions),
+        payload: { questions: result.questions },
+        phase: "CLARIFYING",
+        brief: result.brief,
+        countsClarifyRound: true,
+      };
+    case "plan":
+      return {
+        kind: "PLAN",
+        status: "COMPLETE",
+        content: formatPlanText(result.reply, result.plan),
+        payload: { plan: result.plan },
+        phase: "PLANNED",
+        brief: result.brief,
+      };
+    case "generated":
+      return {
+        kind: "RESULT",
+        status: "COMPLETE",
+        content: summarizeDesignResult(result.nodeCount, result.edgeCount),
+        payload: { nodeCount: result.nodeCount, edgeCount: result.edgeCount, decisions: result.decisions },
+        phase: "COMPLETE",
+        brief: result.brief,
+      };
+  }
 }
 
 /**
  * Writes a run's outcome onto its pending message. The status guard makes this
  * safe to call concurrently: only the first caller changes anything.
  */
-async function applyOutcome(sessionId: string, messageId: string, outcome: TurnOutcome): Promise<boolean> {
-  return prisma.$transaction(async (tx) => {
+async function applyOutcome(sessionId: string, messageId: string, outcome: TurnOutcome): Promise<void> {
+  await prisma.$transaction(async (tx) => {
     const { count } = await tx.aiMessage.updateMany({
       where: { id: messageId, sessionId, status: "PENDING" },
       data: {
@@ -68,12 +203,18 @@ async function applyOutcome(sessionId: string, messageId: string, outcome: TurnO
       },
     });
 
-    if (count === 0) {
-      return false;
+    if (count === 0 || (!outcome.phase && !outcome.brief)) {
+      return;
     }
 
-    await tx.aiSession.update({ where: { id: sessionId }, data: { phase: outcome.phase } });
-    return true;
+    await tx.aiSession.update({
+      where: { id: sessionId },
+      data: {
+        ...(outcome.phase ? { phase: outcome.phase } : {}),
+        ...(outcome.brief ? { brief: outcome.brief } : {}),
+        ...(outcome.countsClarifyRound ? { clarifyRounds: { increment: 1 } } : {}),
+      },
+    });
   });
 }
 
@@ -100,19 +241,18 @@ async function settleTurn(sessionId: string, messageId: string, runId: string): 
 
   let outcome: TurnOutcome;
   if (run.isSuccess) {
-    const nodeCount = run.output?.nodeCount ?? 0;
-    const edgeCount = run.output?.edgeCount ?? 0;
-    outcome = {
-      kind: "RESULT",
-      status: "COMPLETE",
-      content: summarizeDesignResult(nodeCount, edgeCount),
-      payload: { nodeCount, edgeCount },
-      phase: "COMPLETE",
-    };
+    // Run output crosses a service boundary; don't store it unchecked.
+    const parsed = designAgentResultSchema.safeParse(run.output);
+    if (parsed.success) {
+      outcome = outcomeFromResult(parsed.data);
+    } else {
+      console.error("[ai-sessions] unexpected design-agent output", runId, parsed.error.issues);
+      outcome = failedOutcome("The design agent returned an unexpected response. Try again.");
+    }
   } else if (run.isCancelled) {
     outcome = failedOutcome("The design run was cancelled.");
   } else if (run.isFailed) {
-    outcome = failedOutcome(run.error?.message ?? GENERIC_RUN_ERROR);
+    outcome = failedOutcome(describeRunFailure(runId, run.error?.message));
   } else {
     return false;
   }
@@ -140,18 +280,79 @@ export async function getSettledSession(scope: SessionScope, sessionId: string):
   return changed.some(Boolean) ? getSession(scope, sessionId) : session;
 }
 
+// ---------------------------------------------------------------------------
+// Starting a turn
+// ---------------------------------------------------------------------------
+
+export type TurnInput =
+  | { type: "message"; text: string }
+  | { type: "answers"; answers: ClarifyAnswer[] }
+  | { type: "generate" }
+  | { type: "skip" };
+
+interface ResolvedTurn {
+  intent: TurnIntent;
+  /** What is stored and shown as the user's message, and what the model reads. */
+  content: string;
+  kind: AiMessageKind;
+  payload?: Prisma.InputJsonObject;
+}
+
+type ResolveTurnResult = { ok: true; turn: ResolvedTurn } | { ok: false; status: 400 | 409; error: string };
+
+/** Checks a turn against the session state and renders it as a user message. */
+function resolveTurn(session: AiSessionDetail, input: TurnInput): ResolveTurnResult {
+  switch (input.type) {
+    case "message":
+      return { ok: true, turn: { intent: "message", content: input.text, kind: "TEXT" } };
+
+    case "answers": {
+      const questions = openQuestions(session);
+      if (questions.length === 0) {
+        return { ok: false, status: 409, error: "There are no open questions to answer" };
+      }
+
+      const answers = input.answers
+        .map((entry) => ({ questionId: entry.questionId, answer: entry.answer.trim() }))
+        .filter((entry) => entry.answer.length > 0 && questions.some((question) => question.id === entry.questionId));
+      if (answers.length === 0) {
+        return { ok: false, status: 400, error: "Answer at least one question" };
+      }
+
+      const content = formatAnswersText(questions, answers);
+      if (content.length > MAX_MESSAGE_LENGTH) {
+        return { ok: false, status: 400, error: `Answers must be at most ${MAX_MESSAGE_LENGTH} characters` };
+      }
+
+      return { ok: true, turn: { intent: "answers", content, kind: "ANSWERS", payload: { answers } } };
+    }
+
+    case "generate":
+      if (!latestPlan(session)) {
+        return { ok: false, status: 409, error: "There is no plan to generate yet" };
+      }
+      return { ok: true, turn: { intent: "generate", content: "Generate this plan.", kind: "TEXT" } };
+
+    case "skip":
+      return {
+        ok: true,
+        turn: { intent: "skip", content: "Skip the questions and plan with sensible assumptions.", kind: "TEXT" },
+      };
+  }
+}
+
 export type StartTurnResult =
   | { ok: true; session: AiSessionDetail }
-  | { ok: false; status: 404 | 409 | 502; error: string; session?: AiSessionDetail };
+  | { ok: false; status: 400 | 404 | 409 | 502; error: string; session?: AiSessionDetail };
 
 /**
- * Records a user message and starts the design run that answers it.
+ * Records a user turn and starts the design-agent run that answers it.
  *
  * The run is triggered before anything is written, so a stored PENDING message
  * always has a run id to settle from. If the trigger fails, the user message is
  * still stored with an error reply, so the transcript explains what happened.
  */
-export async function startTurn(scope: SessionScope, sessionId: string, text: string): Promise<StartTurnResult> {
+export async function startTurn(scope: SessionScope, sessionId: string, input: TurnInput): Promise<StartTurnResult> {
   const session = await getSettledSession(scope, sessionId);
   if (!session) {
     return { ok: false, status: 404, error: "Session not found" };
@@ -165,12 +366,25 @@ export async function startTurn(scope: SessionScope, sessionId: string, text: st
     return { ok: false, status: 409, error: "This chat is full. Start a new chat to keep designing." };
   }
 
+  const resolved = resolveTurn(session, input);
+  if (!resolved.ok) {
+    return resolved;
+  }
+  const { turn } = resolved;
+
+  const payload: DesignAgentPayload = {
+    roomId: scope.projectId,
+    intent: turn.intent,
+    input: turn.content,
+    history: agentHistory(session),
+    brief: storedBrief(session),
+    plan: latestPlan(session),
+    clarifyRounds: session.clarifyRounds,
+  };
+
   let runId: string | null = null;
   try {
-    const handle = await tasks.trigger<typeof designAgentTask>("design-agent", {
-      prompt: text,
-      roomId: scope.projectId,
-    });
+    const handle = await tasks.trigger<typeof designAgentTask>("design-agent", payload);
     runId = handle.id;
   } catch (error) {
     // wrong-environment TRIGGER_SECRET_KEY, a branch env that does not exist, or
@@ -185,7 +399,14 @@ export async function startTurn(scope: SessionScope, sessionId: string, text: st
 
   await prisma.$transaction(async (tx) => {
     await tx.aiMessage.create({
-      data: { sessionId, role: "USER", kind: "TEXT", content: text, createdAt: userAt },
+      data: {
+        sessionId,
+        role: "USER",
+        kind: turn.kind,
+        content: turn.content,
+        ...(turn.payload ? { payload: turn.payload } : {}),
+        createdAt: userAt,
+      },
     });
 
     await tx.aiMessage.create({
@@ -210,8 +431,9 @@ export async function startTurn(scope: SessionScope, sessionId: string, text: st
       data: {
         lastActivityAt: userAt,
         expiresAt: computeExpiresAt(userAt),
-        ...(runId ? { phase: "GENERATING" } : {}),
-        ...(session.title === DEFAULT_SESSION_TITLE ? { title: toSessionTitle(text) } : {}),
+        ...(input.type === "message" && session.title === DEFAULT_SESSION_TITLE
+          ? { title: toSessionTitle(input.text) }
+          : {}),
       },
     });
   });

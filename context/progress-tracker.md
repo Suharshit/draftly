@@ -9,8 +9,8 @@ Update this file whenever the current phase, active feature, or implementation s
 ## Current Goal
 
 - Persistent, multi-turn AI design sessions (plan: storage → wire sessions → turn engine → UI cards → generation
-  quality → docs). Steps 1 (storage, PR #21) and 2 (sessions wired into the sidebar) are done; next is step 3,
-  the clarify → plan → generate turn engine in the design-agent task.
+  quality → docs). Steps 1 (storage, PR #21), 2 (sessions in the sidebar, PR #22) and 3 (clarify → plan → generate
+  turn engine) are done; next is step 4, question/plan/result cards in the sidebar.
 - After that: the Specs tab (Generate Spec + automatic Markdown download), which remains inert.
 
 ## Completed
@@ -1244,3 +1244,96 @@ Update this file whenever the current phase, active feature, or implementation s
         room, sessions and `TaskRun` removed.
       - Signed-out requests to the turns and session routes are stopped by Clerk.
     - Not checked in a browser (sidebar UI, reload resume, history switching and deleting, Realtime stage line).
+- AI sessions, step 3: multi-turn design agent — clarify → plan → generate (2026-09-15, branch
+  `feat/ai-design-turn-engine`):
+    - Each turn is still one `design-agent` run; the task now decides what the turn does.
+    - `lib/ai/agent-schema.ts` (zod, client-safe): `designBriefSchema` (goal, scale, core features, non-functional,
+      constraints, assumptions, open questions), `clarifyQuestionSchema` (id, question, why, 2–4 options),
+      `turnAnalysisSchema` (updated brief + decision `ask|plan|generate` + reply + ≤3 questions), `designPlanSchema`
+      (summary, components with role/responsibility, flows, decisions with choice/rationale/alternatives,
+      assumptions), and `designAgentResultSchema` — the run output (`ask` / `plan` / `generated`), validated by the
+      server before storing. Also the task payload (`intent`, `input`, last 12 history entries, brief, latest plan,
+      `clarifyRounds`), limits (`MAX_CLARIFY_ROUNDS` 3, `MAX_QUESTIONS_PER_ROUND` 3), and text renderings of
+      questions/plans/answers used as message content (what the model reads back and the sidebar shows until step 4).
+    - `lib/ai/prompts.ts`: analyze, plan, and generate system prompts plus context builders.
+    - `lib/ai/design-agent-engine.ts` (no canvas/DB access): `analyzeTurn`, `draftPlan`, `generateDesignGraph` on
+      `generateText` + `Output.object` (replacing the deprecated `generateObject`), and `enforceDecision`, which
+      overrides the model: no questions after a skip or past 3 rounds, no `generate` without a plan, no `ask` with
+      zero questions. Gemini `thinkingLevel` per step: analyze `low`, plan `medium`, generate `low` — default thinking
+      took 34–82s per call; with these levels analyze calls took 14–24s in the eval.
+    - `src/trigger/design-agent.ts`: `generate` intent with a plan → draw it; otherwise analyze → questions, or draw
+      the existing plan when the user approved it in text, or draft/revise a plan. Stages `analyzing` → `planning` →
+      `generating` → `writing` → `done`. `retry: { maxAttempts: 1 }` — model calls already retry with backoff, and
+      turn-level retries multiplied quota use and could draw a diagram twice.
+    - `lib/ai/session-turns.ts`:
+      - `TurnInput`: `message` (text), `answers` (`{ questionId, answer }[]`, only while the latest reply is
+        questions, paired with the question text), `generate` (409 without a plan), `skip`.
+      - Settling stores `QUESTIONS` (payload `questions`, phase `CLARIFYING`, `clarifyRounds + 1`), `PLAN` (payload
+        `plan`, phase `PLANNED`), or `RESULT` (payload counts + the plan's `decisions`, phase `COMPLETE`), and saves
+        the brief on the session. Invalid run output is stored as an error. A failed turn leaves the phase unchanged.
+      - Run failures are stored as friendly messages (usage limit / busy / timeout / generic); the raw provider error
+        is only logged.
+      - Phase is no longer set to `GENERATING` when a turn starts.
+    - Turns route accepts all four inputs (`{ type: "message" | "answers" | "generate" | "skip" }`); 400 for anything else.
+    - `hooks/use-ai-session.ts`: stage labels for the new stages. The composer still sends only `message` turns, so for
+      now users answer questions and approve plans in free text ("looks good, draw it"); buttons come in step 4.
+    - Validation checks:
+      - `pnpm typecheck` and `pnpm lint` passed
+      - DB turn script (15 checks) passed with the new input types, including failed turns leaving the phase unchanged
+      - Engine eval against Gemini (default thinking): vague prompt → 3 relevant questions with options; answers → plan
+        with a goal and no repeated questions; detailed URL-shortener prompt → straight to a plan (10 components, 4
+        decisions with alternatives, validates against the result schema); approval → `generate`; drawn graph used
+        exactly the 8 plan components with sensible edges; "add a Redis cache" → revised plan that kept every
+        component and added "Link Cache". All six enforced rules passed.
+      - With the new thinking levels: vague prompt and answers passed again (24s and 14s, from 75s and 39s).
+      - Full flow via the local Trigger worker confirmed the 409 guards (generate before a plan, answers without open
+        questions or after a plan), that a failed run is stored as the friendly usage-limit message, and cleanup.
+    - The Gemini key hit its free-tier quota on `gemini-3.5-flash` (20 requests), so testing moved to
+      `gemini-2.5-flash` (`GOOGLE_GENERATIVE_AI_MODEL` in `.env.local`; free tier 5 requests/minute):
+      - `design-agent-engine.ts` now sends `thinkingBudget` (low 1024, medium 4096 tokens) to `gemini-2.x` models,
+        which don't take `thinkingLevel`; Gemini 3+ keeps `thinkingLevel`.
+      - Eval on 2.5-flash, 4–20s per call: vague prompt → 3 questions with options; answers → plan; detailed prompt →
+        straight to a plan (13 components, 5 decisions with alternatives, validates); drawn graph used exactly the 8
+        plan components; "add a Redis cache" → revised plan keeping every component plus "Link Cache"; skip → plan
+        with 6 recorded assumptions; "Looks good, go ahead and draw it" → `generate`; "Looks good, but use Postgres
+        instead" → `plan`. All passed.
+      - Full flow via Trigger: 409 guards passed; the single task attempt failed in 16s and stored the friendly
+        usage-limit message.
+      - Full flow via the restarted Trigger worker on 2.5-flash: first message → 3 questions (12.6s); answers stored as
+        ANSWERS paired with the questions → a second round of 3 questions (12.4s); `clarifyRounds` and phase correct
+        each round; brief stored. The skip turn then failed after 39.6s with "No object generated: response did not
+        match schema".
+    - Fix for that failure — list limits are no longer hard schema constraints:
+      - Cause: the model regularly fills lists up to their `maxItems` (a replay produced exactly 8 plan assumptions and
+        8 brief features against caps of 8 and 12), and Gemini doesn't reliably enforce `maxItems`, so one extra item
+        failed the whole turn.
+      - `agent-schema.ts`: `.max()` removed from every model-filled list (brief lists, question options, plan
+        components/flows/decisions/alternatives/assumptions, questions per round) and the `options` minimum dropped;
+        limits live in `LIST_LIMITS` and are stated in the schema descriptions. New `clampBrief`, `clampQuestions`,
+        `clampPlan` trim to the limits, keeping the first items. Required minimums that matter stay (a plan needs a
+        component; an `ask` result needs a question).
+      - `design-agent-engine.ts`: every result is clamped, and each structured call retries once on
+        `NoObjectGeneratedError` (transport errors are already retried by the SDK).
+      - `design-generation.ts`: `designGraphSchema` no longer enforces 24 nodes / 48 edges; `buildCanvasGraph` trims to
+        those limits, and edges pointing at a trimmed node are still dropped.
+      - Offline check (no model calls, 15 checks): over-long briefs, questions, plans and graphs parse and are trimmed
+        to their limits, a single-option question parses, an empty plan or graph is still rejected, clamped plans
+        validate as stored run output, and no edge references a trimmed node. `pnpm typecheck` and `pnpm lint` pass.
+    - Moved testing to `gemini-3-flash-preview` (`gemini-3-flash` is not an id on this key; free tier 20 requests/day,
+      5/minute). The first full-flow run hung: the run sat in `analyzing` for over 5 minutes with one attempt and no
+      error, while probes showed the model under load ("high demand" on a bare call) but answering `analyzeTurn` in
+      30.7s. Nothing bounded a model call or the task (config `maxDuration` 3600s), so a held request would keep the
+      reply pending and the composer locked. Fix:
+      - `design-agent-engine.ts`: `timeout: { totalMs }` on every structured call — analyze 90s, plan 150s, generate
+        120s. A timeout fails the turn with the existing "took too long" message.
+      - `src/trigger/design-agent.ts`: `maxDuration: 300` as the backstop.
+      - The stuck test run was cancelled.
+      - Re-run after the fix: the first turn again got no model response inside the worker and failed cleanly at the 90s
+        analyze timeout (settled after 97.1s as "The design agent took too long to respond. Try again."), so the
+        timeout path is verified. Two worker runs on `gemini-3-flash-preview` got no response while a direct call took
+        30.7s and `gemini-2.5-flash` runs through the same worker succeeded, which points to preview-model overload
+        rather than code.
+    - Not yet verified: the full flow getting past the skip turn to a plan and a generated diagram through the Trigger
+      worker, with the fix. Both free-tier Gemini quotas on this key are used up (`gemini-3.5-flash` and
+      `gemini-2.5-flash`, 20 requests each); the last run failed on the first turn with the usage-limit message.
+      Re-run `verify-ai-turn-flow-e2e.ts` once quota resets or with a billed key.

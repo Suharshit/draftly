@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 
-import { deleteSession, getSession } from "@/lib/ai/session-store";
+import { deleteSession } from "@/lib/ai/session-store";
+import { getSettledSession } from "@/lib/ai/session-turns";
 import { getAccessibleProject, getCurrentIdentity } from "@/lib/project-access";
 
 type SessionRouteContext = { params: Promise<{ projectId: string; sessionId: string }> };
@@ -34,7 +35,11 @@ async function resolveScope(projectId: string) {
   return { scope: { projectId: project.id, userId } } as const;
 }
 
-/** Returns one of the current user's sessions with its full transcript. */
+/**
+ * Returns one of the current user's sessions with its full transcript. Turns
+ * whose runs have finished are settled first, so the reply is there even if the
+ * tab that sent the message was closed.
+ */
 export async function GET(_request: Request, context: SessionRouteContext) {
   const { projectId, sessionId } = await context.params;
   const result = await resolveScope(projectId);
@@ -42,7 +47,7 @@ export async function GET(_request: Request, context: SessionRouteContext) {
     return result.error;
   }
 
-  const session = await getSession(result.scope, sessionId);
+  const session = await getSettledSession(result.scope, sessionId);
   if (!session) {
     return notFoundResponse();
   }

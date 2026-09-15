@@ -1,10 +1,11 @@
 "use client";
 
-import { FormEvent, KeyboardEvent, useState } from "react";
+import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
-import { ArrowRight, Download, FileText, Loader2, Sparkle, X } from "lucide-react";
+import { ArrowRight, ChevronDown, Download, FileText, History, Loader2, Plus, Sparkle, X } from "lucide-react";
 
-import { useDesignAgent } from "@/hooks/use-design-agent";
+import { AiSessionHistory } from "@/components/editor/ai-session-history";
+import { useAiSession } from "@/hooks/use-ai-session";
 import { cn } from "@/lib/utils";
 
 interface AiSidebarProps {
@@ -42,9 +43,34 @@ function SparkleMark({ className }: { className?: string }) {
 
 export function AiSidebar({ open, onClose, projectId }: AiSidebarProps) {
   const [inputValue, setInputValue] = useState("");
-  const { messages, statusText, isRunning, sendPrompt } = useDesignAgent(projectId);
+  const [showHistory, setShowHistory] = useState(false);
+  const {
+    sessions,
+    activeSessionId,
+    activeSessionTitle,
+    messages,
+    statusText,
+    isRunning,
+    canSwitchSession,
+    isLoadingSession,
+    sessionLoadFailed,
+    sendPrompt,
+    startNewChat,
+    selectSession,
+    removeSession,
+    retryLoadSession,
+  } = useAiSession(projectId);
 
-  const showEmptyState = messages.length === 0;
+  const transcriptEndRef = useRef<HTMLDivElement>(null);
+
+  const showEmptyState = messages.length === 0 && !isLoadingSession && !sessionLoadFailed;
+
+  // Keep the latest message in view, including when a saved chat opens.
+  useEffect(() => {
+    if (!showHistory) {
+      transcriptEndRef.current?.scrollIntoView({ block: "end" });
+    }
+  }, [messages.length, showHistory, statusText]);
 
   const sendMessage = (text: string) => {
     if (!text.trim() || isRunning) {
@@ -53,6 +79,7 @@ export function AiSidebar({ open, onClose, projectId }: AiSidebarProps) {
 
     sendPrompt(text);
     setInputValue("");
+    setShowHistory(false);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -65,6 +92,16 @@ export function AiSidebar({ open, onClose, projectId }: AiSidebarProps) {
       event.preventDefault();
       sendMessage(inputValue);
     }
+  };
+
+  const handleNewChat = () => {
+    startNewChat();
+    setShowHistory(false);
+  };
+
+  const handleSelectSession = (sessionId: string) => {
+    selectSession(sessionId);
+    setShowHistory(false);
   };
 
   return (
@@ -109,70 +146,145 @@ export function AiSidebar({ open, onClose, projectId }: AiSidebarProps) {
         </TabsPrimitive.List>
 
         <TabsPrimitive.Panel value="architect" className="flex min-h-0 flex-1 flex-col outline-none">
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
-            {showEmptyState ? (
-              <div className="border border-ink bg-paper-bright p-5 rounded-paper">
-                <div className="mb-4 flex items-start gap-3">
-                  <SparkleMark className="mt-0.5 size-7" />
-                  <p className="font-brand text-base leading-snug font-semibold text-ink">
-                    How can I help you design your architecture?
-                  </p>
-                </div>
-                <div className="space-y-2.5">
-                  {STARTER_PROMPTS.map((prompt) => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      onClick={() => sendMessage(prompt)}
-                      disabled={isRunning}
-                      className={cn(
-                        "block w-full cursor-pointer rounded-paper border border-ink/20 bg-paper-cream px-3.5 py-2.5 text-left font-brand text-sm text-ink",
-                        "transition-colors hover:border-ink disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-ink/20",
-                        focusClass,
-                      )}
-                    >
-                      {prompt}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
+          <div className="flex items-center gap-2 border-b border-ink/15 px-5 py-2">
+            <button
+              type="button"
+              onClick={() => setShowHistory((previous) => !previous)}
+              aria-expanded={showHistory}
+              aria-label={showHistory ? "Hide saved chats" : "Show saved chats"}
+              className={cn(
+                "-ml-2 flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-paper px-2 py-1.5 text-left transition-colors hover:bg-ink/5",
+                focusClass,
+              )}
+            >
+              <History className="h-4 w-4 shrink-0 text-ink-soft" aria-hidden="true" />
+              <span className="truncate font-brand text-sm font-medium text-ink">
+                {activeSessionTitle ?? "New chat"}
+              </span>
+              <ChevronDown
+                className={cn("h-4 w-4 shrink-0 text-ink-soft transition-transform", showHistory && "rotate-180")}
+                aria-hidden="true"
+              />
+            </button>
+            <button
+              type="button"
+              onClick={handleNewChat}
+              disabled={!canSwitchSession}
+              className={cn(
+                "flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-paper border border-ink px-2.5 font-brand text-xs font-medium text-ink",
+                "transition-colors hover:bg-ink hover:text-paper-cream disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink",
+                focusClass,
+              )}
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              New chat
+            </button>
+          </div>
 
-            {messages.map((message) => {
-              if (message.role === "user") {
-                return (
-                  <div key={message.id} className="flex justify-end">
-                    <div className="max-w-[85%] rounded-paper bg-ink px-3.5 py-2.5 font-brand text-sm text-paper-cream">
-                      {message.text}
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
+            {showHistory ? (
+              <AiSessionHistory
+                sessions={sessions}
+                activeSessionId={activeSessionId}
+                canSwitch={canSwitchSession}
+                onSelect={handleSelectSession}
+                onDelete={removeSession}
+              />
+            ) : (
+              <>
+                {isLoadingSession ? (
+                  <div
+                    className="flex items-center gap-2 font-mono text-chrome tracking-chrome text-ink-soft uppercase"
+                    aria-live="polite"
+                  >
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                    Loading chat…
+                  </div>
+                ) : null}
+
+                {sessionLoadFailed ? (
+                  <div
+                    role="alert"
+                    className="rounded-paper border border-ink/20 border-l-2 border-l-paper-pin-red bg-paper-bright px-3.5 py-3 font-brand text-sm text-ink"
+                  >
+                    <p>This chat could not be loaded.</p>
+                    <button
+                      type="button"
+                      onClick={retryLoadSession}
+                      className={cn("mt-2 cursor-pointer font-medium underline underline-offset-2", focusClass)}
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : null}
+
+                {showEmptyState ? (
+                  <div className="border border-ink bg-paper-bright p-5 rounded-paper">
+                    <div className="mb-4 flex items-start gap-3">
+                      <SparkleMark className="mt-0.5 size-7" />
+                      <p className="font-brand text-base leading-snug font-semibold text-ink">
+                        How can I help you design your architecture?
+                      </p>
+                    </div>
+                    <div className="space-y-2.5">
+                      {STARTER_PROMPTS.map((prompt) => (
+                        <button
+                          key={prompt}
+                          type="button"
+                          onClick={() => sendMessage(prompt)}
+                          disabled={isRunning}
+                          className={cn(
+                            "block w-full cursor-pointer rounded-paper border border-ink/20 bg-paper-cream px-3.5 py-2.5 text-left font-brand text-sm text-ink",
+                            "transition-colors hover:border-ink disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-ink/20",
+                            focusClass,
+                          )}
+                        >
+                          {prompt}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                );
-              }
+                ) : null}
 
-              return (
-                <div key={message.id} className="flex justify-start">
+                {messages.map((message) => {
+                  if (message.role === "user") {
+                    return (
+                      <div key={message.id} className="flex justify-end">
+                        <div className="max-w-[85%] rounded-paper bg-ink px-3.5 py-2.5 font-brand text-sm whitespace-pre-wrap text-paper-cream">
+                          {message.text}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={message.id} className="flex justify-start">
+                      <div
+                        className={cn(
+                          "max-w-[90%] rounded-paper border border-ink/20 bg-paper-bright px-3.5 py-2.5 font-brand text-sm whitespace-pre-wrap text-ink",
+                          message.isError && "border-l-2 border-l-paper-pin-red",
+                        )}
+                        role={message.isError ? "alert" : undefined}
+                      >
+                        {message.text}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {statusText ? (
                   <div
-                    className={cn(
-                      "max-w-[90%] rounded-paper border border-ink/20 bg-paper-bright px-3.5 py-2.5 font-brand text-sm text-ink",
-                      message.isError && "border-l-2 border-l-paper-pin-red",
-                    )}
-                    role={message.isError ? "alert" : undefined}
+                    className="flex items-center gap-2 font-mono text-chrome tracking-chrome text-ink-soft uppercase"
+                    aria-live="polite"
                   >
-                    {message.text}
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                    {statusText}
                   </div>
-                </div>
-              );
-            })}
+                ) : null}
 
-            {statusText ? (
-              <div
-                className="flex items-center gap-2 font-mono text-chrome tracking-chrome text-ink-soft uppercase"
-                aria-live="polite"
-              >
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                {statusText}
-              </div>
-            ) : null}
+                <div ref={transcriptEndRef} />
+              </>
+            )}
           </div>
 
           <form className="border-t border-ink/15 px-5 pt-4 pb-4" onSubmit={handleSubmit}>

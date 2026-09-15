@@ -6,6 +6,7 @@ import { useUser } from "@clerk/nextjs";
 import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 
 import type { SidebarProject } from "@/lib/project-data";
+import { formatRelativeTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
 
 const RECENT_PROJECT_COUNT = 3;
@@ -24,19 +25,6 @@ interface ProjectSidebarProps {
    * Undocked: it floats over the content at every width, so the canvas never resizes or shifts.
    */
   docked?: boolean;
-}
-
-function formatRelativeTime(isoDate: string, now: number) {
-  const minutes = Math.floor(Math.max(0, now - new Date(isoDate).getTime()) / 60_000);
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  if (days < 30) return `${Math.floor(days / 7)}w`;
-  if (days < 365) return `${Math.floor(days / 30)}mo`;
-  return `${Math.floor(days / 365)}y`;
 }
 
 function getInitials(label: string) {

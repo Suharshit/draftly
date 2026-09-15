@@ -2,14 +2,14 @@ import { assignEdgeHandles } from "@/lib/canvas-connections";
 import {
   CANVAS_EDGE_TYPE,
   CANVAS_NODE_TYPE,
-  NODE_FILLS,
+  getRoleFill,
   SHAPE_DEFAULTS,
   type CanvasArrowDirection,
   type CanvasEdge,
   type CanvasEdgeData,
   type CanvasNode,
   type CanvasShape,
-  type NodeFill,
+  type NodeRole,
 } from "@/types/canvas";
 
 export interface CanvasTemplate {
@@ -46,20 +46,6 @@ export interface CanvasTemplate {
  * has more than four edges. Handles are assigned by `assignEdgeHandles`.
  */
 
-type TemplateRole = "entry" | "compute" | "messaging" | "data" | "output";
-
-const ROLE_FILLS: Record<TemplateRole, NodeFill["id"]> = {
-  entry: "blue",
-  compute: "paper",
-  messaging: "coral",
-  data: "amber",
-  output: "sage",
-};
-
-function getFillValue(fillId: NodeFill["id"]) {
-  return (NODE_FILLS.find((fill) => fill.id === fillId) ?? NODE_FILLS[0]).value;
-}
-
 /** `cx` / `cy` are the node's centre, so shapes of different sizes on one row or column line up. */
 export function createTemplateNode(
   id: string,
@@ -67,7 +53,7 @@ export function createTemplateNode(
   cx: number,
   cy: number,
   shape: CanvasShape,
-  role: TemplateRole,
+  role: NodeRole,
   kicker: string,
 ): CanvasNode {
   const { width, height } = SHAPE_DEFAULTS[shape];
@@ -81,7 +67,7 @@ export function createTemplateNode(
       label,
       shape,
       kicker,
-      color: getFillValue(ROLE_FILLS[role]),
+      color: getRoleFill(role).value,
     },
   };
 }

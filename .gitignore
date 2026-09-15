@@ -46,3 +46,5 @@ next-env.d.ts
 .trigger
 
 context/things-to-rember.md
+
+docs.md

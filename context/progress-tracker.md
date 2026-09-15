@@ -12,10 +12,13 @@ Update this file whenever the current phase, active feature, or implementation s
   quality → docs). Steps 1 (storage, PR #21), 2 (sessions in the sidebar, PR #22) and 3 (clarify → plan → generate
   turn engine, PR #23) and 4 (question/plan/result cards, PR #25) are done; step 5 (generation quality: canvas
   context, roles and kickers, async edges, validate-and-repair, PR #26) and step 6 (docs, PR #27) are done.
-- Generate Spec (unit G1) is built on `feat/generate-spec`, stacked on #27, and awaiting review.
-- Repository note (2026-09-16): GitHub `main` contains #21–#23 only. #25 and #26 were merged into their stacked
-  base branches after those bases had already merged, so steps 4 and 5 are not on `main` yet; #27 and the G1 PR
-  carry them.
+- Generate Spec (unit G1) is PR #28 (`feat/generate-spec`, base `feat/ai-sessions-docs`), awaiting review.
+- Repository note (2026-09-16): GitHub `main` contains #21–#23 (steps 1–3) only. #25, #26 and #27 were merged into
+  their stacked base branches after those bases had already merged, so steps 4–6 are on
+  `feat/ai-generation-quality` (`7f0f249`), not on `main`. Their content matches the local branches exactly (tree
+  diffs empty). Merging a stacked branch into `main` conflicts in 11 files because `main` has squash commits of steps
+  1–3 while the stack has the original commits; `main`'s tree equals step 3 exactly, so a sync commit on `main` whose
+  tree is the stack head brings it up to date without losing anything.
 - After that: the Specs tab (Generate Spec + automatic Markdown download), which remains inert.
 
 ## Completed

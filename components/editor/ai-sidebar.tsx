@@ -4,8 +4,16 @@ import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 import { ArrowRight, ChevronDown, Download, FileText, History, Loader2, Plus, Sparkle, X } from "lucide-react";
 
+import { PlanCard, QuestionsCard, ResultCard } from "@/components/editor/ai-chat-cards";
 import { AiSessionHistory } from "@/components/editor/ai-session-history";
-import { useAiSession } from "@/hooks/use-ai-session";
+import { useAiSession, type AiChatMessage } from "@/hooks/use-ai-session";
+import {
+  readAnswersPayload,
+  readPlanPayload,
+  readQuestionsPayload,
+  readReplyPayload,
+  readResultPayload,
+} from "@/lib/ai/agent-schema";
 import { cn } from "@/lib/utils";
 
 interface AiSidebarProps {
@@ -29,6 +37,14 @@ const tabClass = cn(
   "data-active:font-semibold data-active:text-ink data-active:after:opacity-100",
   focusClass,
 );
+
+/**
+ * The newest assistant reply that did not fail. The server treats questions
+ * as open, and a plan as the one to draw, only while they are that reply.
+ */
+function latestAssistantReply(messages: readonly AiChatMessage[]): AiChatMessage | undefined {
+  return messages.findLast((message) => message.role === "assistant" && !message.isError);
+}
 
 function SparkleMark({ className }: { className?: string }) {
   return (
@@ -54,6 +70,7 @@ export function AiSidebar({ open, onClose, projectId }: AiSidebarProps) {
     canSwitchSession,
     isLoadingSession,
     sessionLoadFailed,
+    sendTurn,
     sendPrompt,
     startNewChat,
     selectSession,
@@ -64,6 +81,15 @@ export function AiSidebar({ open, onClose, projectId }: AiSidebarProps) {
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   const showEmptyState = messages.length === 0 && !isLoadingSession && !sessionLoadFailed;
+
+  const latestReply = latestAssistantReply(messages);
+  const openKind = !isRunning && latestReply ? latestReply.kind : null;
+  const composerPlaceholder =
+    openKind === "QUESTIONS"
+      ? "Or answer in your own words..."
+      : openKind === "PLAN"
+        ? "Describe changes to the plan..."
+        : "Ask Draftly AI to design or refine your architecture...";
 
   // Keep the latest message in view, including when a saved chat opens.
   useEffect(() => {
@@ -246,7 +272,7 @@ export function AiSidebar({ open, onClose, projectId }: AiSidebarProps) {
                   </div>
                 ) : null}
 
-                {messages.map((message) => {
+                {messages.map((message, index) => {
                   if (message.role === "user") {
                     return (
                       <div key={message.id} className="flex justify-end">
@@ -255,6 +281,48 @@ export function AiSidebar({ open, onClose, projectId }: AiSidebarProps) {
                         </div>
                       </div>
                     );
+                  }
+
+                  const isLatestReply = message.id === latestReply?.id && !isRunning;
+
+                  if (!message.isError && message.kind === "QUESTIONS") {
+                    const questions = readQuestionsPayload(message.payload);
+                    if (questions && questions.length > 0) {
+                      const next = messages[index + 1];
+                      return (
+                        <QuestionsCard
+                          key={message.id}
+                          intro={readReplyPayload(message.payload)}
+                          questions={questions}
+                          answers={next?.kind === "ANSWERS" ? readAnswersPayload(next.payload) : null}
+                          interactive={isLatestReply}
+                          onSubmit={(answers) => sendTurn({ type: "answers", answers })}
+                          onSkip={() => sendTurn({ type: "skip" })}
+                        />
+                      );
+                    }
+                  }
+
+                  if (!message.isError && message.kind === "PLAN") {
+                    const plan = readPlanPayload(message.payload);
+                    if (plan) {
+                      return (
+                        <PlanCard
+                          key={message.id}
+                          intro={readReplyPayload(message.payload)}
+                          plan={plan}
+                          interactive={isLatestReply}
+                          onGenerate={() => sendTurn({ type: "generate" })}
+                        />
+                      );
+                    }
+                  }
+
+                  if (!message.isError && message.kind === "RESULT") {
+                    const result = readResultPayload(message.payload);
+                    if (result) {
+                      return <ResultCard key={message.id} text={message.text} result={result} />;
+                    }
                   }
 
                   return (
@@ -290,7 +358,7 @@ export function AiSidebar({ open, onClose, projectId }: AiSidebarProps) {
           <form className="border-t border-ink/15 px-5 pt-4 pb-4" onSubmit={handleSubmit}>
             <textarea
               aria-label="Message Draftly AI"
-              placeholder="Ask Draftly AI to design or refine your architecture..."
+              placeholder={composerPlaceholder}
               value={inputValue}
               onChange={(event) => setInputValue(event.target.value)}
               onKeyDown={handleKeyDown}

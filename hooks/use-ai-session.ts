@@ -4,6 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUpdateMyPresence } from "@liveblocks/react";
 import { useRealtimeRun } from "@trigger.dev/react-hooks";
 
+import {
+  formatAnswersText,
+  GENERATE_TURN_TEXT,
+  readQuestionsPayload,
+  SKIP_TURN_TEXT,
+  type TurnInput,
+} from "@/lib/ai/agent-schema";
 import { MAX_SESSIONS_PER_USER_PROJECT } from "@/lib/ai/session-limits";
 import {
   DESIGN_AGENT_STAGE_KEY,
@@ -11,12 +18,16 @@ import {
   type DesignAgentStage,
 } from "@/lib/design-generation";
 import type { designAgentTask } from "@/src/trigger/design-agent";
-import type { AiSessionDetail, AiSessionSummary } from "@/types/ai-session";
+import type { AiMessageKind, AiSessionDetail, AiSessionSummary } from "@/types/ai-session";
 
 export interface AiChatMessage {
   id: string;
   role: "user" | "assistant";
+  /** Decides how the sidebar renders the message (plain bubble, questions, plan, result). */
+  kind: AiMessageKind;
   text: string;
+  /** Structured part of the message; read with the payload readers in `agent-schema`. */
+  payload: unknown;
   /** Assistant messages reporting a failure render in the error style. */
   isError?: boolean;
 }
@@ -36,6 +47,7 @@ export interface UseAiSessionResult {
   canSwitchSession: boolean;
   isLoadingSession: boolean;
   sessionLoadFailed: boolean;
+  sendTurn: (input: TurnInput) => void;
   sendPrompt: (text: string) => void;
   startNewChat: () => void;
   selectSession: (sessionId: string) => void;
@@ -85,7 +97,9 @@ function writeStoredSessionId(projectId: string, sessionId: string): void {
 function describeRequestFailure(status: number, serverError: string | undefined): string {
   switch (status) {
     case 400:
-      return "That message could not be sent. Try rephrasing it.";
+      return serverError === "Invalid turn"
+        ? "That message could not be sent. Try rephrasing it."
+        : (serverError ?? "That message could not be sent. Try rephrasing it.");
     case 401:
       return "Your session expired. Sign in again to keep designing.";
     case 403:
@@ -101,6 +115,25 @@ function describeRequestFailure(status: number, serverError: string | undefined)
 
 function toSummary({ id, title, phase, lastActivityAt, expiresAt, createdAt }: AiSessionDetail): AiSessionSummary {
   return { id, title, phase, lastActivityAt, expiresAt, createdAt };
+}
+
+/** What the user's side of a turn reads as, shown until the server transcript returns. */
+function describeTurn(input: TurnInput, session: AiSessionDetail | null): { text: string; kind: AiMessageKind } {
+  switch (input.type) {
+    case "message":
+      return { text: input.text.trim(), kind: "TEXT" };
+    case "answers": {
+      const questionsMessage = session?.messages.findLast(
+        (message) => message.kind === "QUESTIONS" && message.status === "COMPLETE",
+      );
+      const questions = questionsMessage ? (readQuestionsPayload(questionsMessage.payload) ?? []) : [];
+      return { text: formatAnswersText(questions, input.answers), kind: "ANSWERS" };
+    }
+    case "generate":
+      return { text: GENERATE_TURN_TEXT, kind: "TEXT" };
+    case "skip":
+      return { text: SKIP_TURN_TEXT, kind: "TEXT" };
+  }
 }
 
 type SessionLoadResult =
@@ -128,11 +161,11 @@ async function fetchSession(projectId: string, sessionId: string): Promise<Sessi
 /**
  * Drives the AI Architect chat against stored sessions.
  *
- * The server transcript is the single source of truth: a sent message comes
- * back as a PENDING reply carrying a run id, and the reply is filled in when
- * the session is read after the run finishes. Trigger Realtime only shortens
- * that wait; polling guarantees it. A reload therefore restores the chat and
- * picks the in-flight run back up.
+ * The server transcript is the single source of truth: a sent turn comes back
+ * as a PENDING reply carrying a run id, and the reply is filled in when the
+ * session is read after the run finishes. Trigger Realtime only shortens that
+ * wait; polling guarantees it. A reload therefore restores the chat and picks
+ * the in-flight run back up.
  *
  * Must be used inside a `RoomProvider` — it writes presence for the room.
  */
@@ -142,7 +175,7 @@ export function useAiSession(projectId: string): UseAiSessionResult {
   const [session, setSession] = useState<AiSessionDetail | null>(null);
   const [failedSessionId, setFailedSessionId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [optimisticPrompt, setOptimisticPrompt] = useState<string | null>(null);
+  const [optimisticTurn, setOptimisticTurn] = useState<{ text: string; kind: AiMessageKind } | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [runAccess, setRunAccess] = useState<{ runId: string; token: string } | null>(null);
 
@@ -306,15 +339,18 @@ export function useAiSession(projectId: string): UseAiSessionResult {
 
   const isRunning = isSubmitting || pendingRunId !== null;
 
-  const sendPrompt = useCallback(
-    (text: string) => {
-      const prompt = text.trim();
-      if (!prompt || isRunning) {
+  const sendTurn = useCallback(
+    (input: TurnInput) => {
+      if (isRunning) {
+        return;
+      }
+      const turn = describeTurn(input, visibleSession);
+      if (turn.text.length === 0) {
         return;
       }
 
       setRequestError(null);
-      setOptimisticPrompt(prompt);
+      setOptimisticTurn(turn);
       setIsSubmitting(true);
 
       void (async () => {
@@ -323,10 +359,15 @@ export function useAiSession(projectId: string): UseAiSessionResult {
 
           // A new chat is only stored once it has a first message.
           if (!sessionId) {
+            if (input.type !== "message") {
+              setRequestError(describeRequestFailure(404, undefined));
+              return;
+            }
+
             const created = await fetch(`/api/projects/${projectId}/ai-sessions`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ title: prompt }),
+              body: JSON.stringify({ title: turn.text }),
             });
             const createdBody = (await created.json().catch(() => null)) as
               | { session?: AiSessionSummary; error?: string }
@@ -347,7 +388,7 @@ export function useAiSession(projectId: string): UseAiSessionResult {
           const response = await fetch(`/api/projects/${projectId}/ai-sessions/${sessionId}/turns`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type: "message", text: prompt }),
+            body: JSON.stringify(input.type === "message" ? { type: "message", text: turn.text } : input),
           });
           const body = (await response.json().catch(() => null)) as
             | { session?: AiSessionDetail; error?: string }
@@ -369,13 +410,15 @@ export function useAiSession(projectId: string): UseAiSessionResult {
         } catch {
           setRequestError(GENERIC_ERROR);
         } finally {
-          setOptimisticPrompt(null);
+          setOptimisticTurn(null);
           setIsSubmitting(false);
         }
       })();
     },
-    [activeSessionId, dropSession, isRunning, projectId, upsertSummary],
+    [activeSessionId, dropSession, isRunning, projectId, upsertSummary, visibleSession],
   );
+
+  const sendPrompt = useCallback((text: string) => sendTurn({ type: "message", text }), [sendTurn]);
 
   const startNewChat = useCallback(() => {
     if (isSubmitting) {
@@ -429,18 +472,33 @@ export function useAiSession(projectId: string): UseAiSessionResult {
       .map((message) => ({
         id: message.id,
         role: message.role === "USER" ? "user" : "assistant",
+        kind: message.kind,
         text: message.content,
+        payload: message.payload,
         isError: message.kind === "ERROR" || message.status === "FAILED",
       }));
 
-    if (optimisticPrompt) {
-      transcript.push({ id: "optimistic-prompt", role: "user", text: optimisticPrompt });
+    if (optimisticTurn) {
+      transcript.push({
+        id: "optimistic-turn",
+        role: "user",
+        kind: optimisticTurn.kind,
+        text: optimisticTurn.text,
+        payload: null,
+      });
     }
     if (requestError) {
-      transcript.push({ id: "request-error", role: "assistant", text: requestError, isError: true });
+      transcript.push({
+        id: "request-error",
+        role: "assistant",
+        kind: "ERROR",
+        text: requestError,
+        payload: null,
+        isError: true,
+      });
     }
     return transcript;
-  }, [optimisticPrompt, requestError, visibleSession]);
+  }, [optimisticTurn, requestError, visibleSession]);
 
   // Let collaborators in the room see that a generation is in progress.
   useEffect(() => {
@@ -472,6 +530,7 @@ export function useAiSession(projectId: string): UseAiSessionResult {
     canSwitchSession: !isSubmitting,
     isLoadingSession: hasActiveSession && failedSessionId !== activeSessionId,
     sessionLoadFailed: hasActiveSession && failedSessionId === activeSessionId,
+    sendTurn,
     sendPrompt,
     startNewChat,
     selectSession,

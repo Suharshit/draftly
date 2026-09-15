@@ -30,7 +30,7 @@ import { StarterTemplatesModal } from "@/components/editor/starter-templates-mod
 import { CANVAS_TEMPLATES, type CanvasTemplate } from "@/components/editor/starter-templates";
 import { useCanvasAutosave, type CanvasSaveStatus } from "@/hooks/use-canvas-autosave";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
-import { CANVAS_NODE_TYPE, CANVAS_EDGE_TYPE } from "@/types/canvas";
+import { CANVAS_NODE_TYPE, CANVAS_EDGE_TYPE, TEXT_NODE_SHAPE } from "@/types/canvas";
 import type { CanvasEdge, CanvasNode } from "@/types/canvas";
 
 // ---------------------------------------------------------------------------
@@ -65,6 +65,7 @@ interface CanvasFlowInnerProps {
   canAutosave: boolean;
   onSaveStatusChange?: (status: CanvasSaveStatus) => void;
   isSidebarOpen: boolean;
+  isAiSidebarOpen: boolean;
 }
 
 function CanvasFlowInner({
@@ -72,6 +73,7 @@ function CanvasFlowInner({
   canAutosave,
   onSaveStatusChange,
   isSidebarOpen,
+  isAiSidebarOpen,
 }: CanvasFlowInnerProps) {
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -227,15 +229,13 @@ function CanvasFlowInner({
           x: position.x - payload.width / 2,
           y: position.y - payload.height / 2,
         },
-        style: {
-          width: payload.width,
-          height: payload.height,
-        },
+        // Text nodes get no fixed size, so React Flow measures them as their text grows.
+        ...(payload.shape === TEXT_NODE_SHAPE
+          ? {}
+          : { style: { width: payload.width, height: payload.height } }),
         data: {
           label: "",
           color: undefined,
-          textColor: "var(--text-primary)",
-          strokeColor: "var(--text-primary)",
           shape: payload.shape,
         },
       };
@@ -313,7 +313,7 @@ function CanvasFlowInner({
 
   return (
     <div
-      className={`relative h-full w-full ${isSpacePressed ? "cursor-grab" : "cursor-default"}`}
+      className={`relative h-full w-full bg-paper-cream ${isSpacePressed ? "cursor-grab" : "cursor-default"}`}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onPointerMove={handlePointerMove}
@@ -330,6 +330,7 @@ function CanvasFlowInner({
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
+        fitViewOptions={{ minZoom: 1, maxZoom: 1 }}
         connectionMode={ConnectionMode.Loose}
         connectionLineType={ConnectionLineType.SmoothStep}
         defaultEdgeOptions={{ type: CANVAS_EDGE_TYPE, data: { arrowDirection: "none", edgeStyle: "solid" } }}
@@ -344,12 +345,13 @@ function CanvasFlowInner({
         {isMinimapOpen ? (
           <MiniMap
             position="bottom-right"
-            nodeColor={() => "var(--accent-primary)"}
-            maskColor="rgba(9,9,11,0.6)"
+            nodeColor={() => "var(--ink)"}
+            maskColor="color-mix(in srgb, var(--ink) 8%, transparent)"
             style={{
-              background: "var(--bg-surface)",
-              border: "1px solid var(--border-default)",
-              borderRadius: 6,
+              background: "var(--paper-bright)",
+              border: "1px solid var(--ink)",
+              borderRadius: 2,
+              boxShadow: "var(--shadow-flat)",
             }}
           />
         ) : null}
@@ -357,12 +359,12 @@ function CanvasFlowInner({
           variant={BackgroundVariant.Dots}
           gap={20}
           size={1}
-          color="var(--border-default)"
+          color="color-mix(in srgb, var(--ink) 22%, transparent)"
         />
       </ReactFlow>
 
       {/* Floating overlays */}
-      <CanvasPresenceOverlay />
+      <CanvasPresenceOverlay isAiSidebarOpen={isAiSidebarOpen} />
       <CanvasThinkingIndicator />
       <CanvasControlBar
         onOpenTemplates={() => setIsTemplatesOpen(true)}
@@ -396,6 +398,7 @@ interface CanvasFlowProps {
   canAutosave: boolean;
   onSaveStatusChange?: (status: CanvasSaveStatus) => void;
   isSidebarOpen: boolean;
+  isAiSidebarOpen: boolean;
 }
 
 export function CanvasFlow({
@@ -403,6 +406,7 @@ export function CanvasFlow({
   canAutosave,
   onSaveStatusChange,
   isSidebarOpen,
+  isAiSidebarOpen,
 }: CanvasFlowProps) {
   return (
     <ReactFlowProvider>
@@ -411,6 +415,7 @@ export function CanvasFlow({
         canAutosave={canAutosave}
         onSaveStatusChange={onSaveStatusChange}
         isSidebarOpen={isSidebarOpen}
+        isAiSidebarOpen={isAiSidebarOpen}
       />
     </ReactFlowProvider>
   );

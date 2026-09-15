@@ -5,6 +5,8 @@ export interface SidebarProject {
   name: string;
   roomId: string;
   isOwned: boolean;
+  /** ISO timestamp of the last change to the project. */
+  updatedAt: string;
 }
 
 export interface ProjectSidebarData {
@@ -21,11 +23,12 @@ export async function getProjectSidebarData(
       ownerId: userId,
     },
     orderBy: {
-      createdAt: "desc",
+      updatedAt: "desc",
     },
     select: {
       id: true,
       name: true,
+      updatedAt: true,
     },
   });
 
@@ -42,11 +45,12 @@ export async function getProjectSidebarData(
           },
         },
         orderBy: {
-          createdAt: "desc",
+          updatedAt: "desc",
         },
         select: {
           id: true,
           name: true,
+          updatedAt: true,
         },
       })
     : [];
@@ -57,12 +61,14 @@ export async function getProjectSidebarData(
       name: project.name,
       roomId: project.id,
       isOwned: true,
+      updatedAt: project.updatedAt.toISOString(),
     })),
     sharedProjects: sharedProjects.map((project) => ({
       id: project.id,
       name: project.name,
       roomId: project.id,
       isOwned: false,
+      updatedAt: project.updatedAt.toISOString(),
     })),
   };
 }

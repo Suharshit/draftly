@@ -974,3 +974,109 @@ Update this file whenever the current phase, active feature, or implementation s
       so sign-in returns them straight to the editor home.
     - `/` already redirected signed-in users to `/editor`; unchanged. `/dashboard` still exists as a placeholder
       but nothing links to it now.
+- Restyled the editor chrome to the editor shell wireframe (2026-09-15, `components/editor/`):
+    - `EditorNavbar` now serves both states. Cream bar (h-16) with an ink sidebar toggle, "Draftly / No project
+      open" or "Draftly / {project name}", a mono status (READY, or SAVING… / SAVED / SAVE FAILED / VIEW ONLY),
+      an outline Share button (disabled with no project), the AI toggle when a project is open, and Clerk's
+      `UserButton` (still in the navbar). `EditorWorkspaceShell` uses it in place of its inline header.
+    - `ProjectSidebar` is docked on md+ (pushes content, collapses to 0 width) and an overlay below md. Ink
+      "New project" button, project search, RECENT (3 most recently updated across owned + shared), ALL PROJECTS,
+      SHARED WITH YOU, mono relative times (2h / 1d / 1w / 1mo), hover/focus rename + delete for owned projects,
+      and a footer with the signed-in user's initials, name and project count. Tabs removed.
+    - `EditorShell` (editor home): sidebar open by default, small connected-boxes mark, heading, "New project"
+      and "Open recent" (links to the most recently updated project; disabled when there are none), and an
+      "or press N" hint. Plain N opens the create dialog (Ctrl/⌘+N is reserved by browsers).
+    - `SidebarProject` gained `updatedAt` (ISO string); sidebar lists are ordered by `updatedAt desc`.
+    - Still dark: canvas, AI sidebar, canvas control bar, project dialogs, share dialog. `CanvasControlBar` still
+      hides when the sidebar is open with nothing selected; with a docked sidebar that is no longer needed.
+    - `pnpm typecheck` and `pnpm lint` pass. Not checked in a browser.
+- Fixed long project names running under the rename/delete buttons in `ProjectSidebar` (2026-09-15):
+    - On hover or keyboard focus of an owned row, the time is removed, the link reserves right padding for the
+      buttons, and the name's ellipsis is replaced by a 2rem fade (CSS mask). Otherwise the name shows as before.
+- Restyled `AiSidebar` to the AI sidebar wireframe (2026-09-15, `components/editor/ai-sidebar.tsx` only):
+    - Docked full-height cream panel on the right edge of the canvas area (w-94, left hairline, slides out when
+      closed, `inert` while closed). Brand tokens, `scheme-light`; no shadcn primitives (Base UI tabs directly,
+      native textarea/buttons, plain scroll container).
+    - Header: sparkle mark, "AI Workspace", "Collaborate with Draftly AI" (was "Ghost AI"), close button.
+    - Underlined "AI Architect" / "Specs" tabs. Empty state is an ink-bordered card with the three starter prompts
+      as full-width rows. User messages are ink slabs, assistant messages paper cards, errors get a pin-red left
+      rule, and the run status is mono chrome with a spinner.
+    - Composer: ink-bordered textarea, mono "Enter to send · Shift+Enter new line" hint, square ink send button
+      with an arrow. Specs tab restyled but still inert.
+    - Behaviour and `useDesignAgent` wiring unchanged. Canvas and navbar untouched.
+- Fixed and restyled the canvas `ShapePanel` (2026-09-15, `components/editor/shape-panel.tsx` only):
+    - It was `absolute` inside the canvas section, so it re-centred whenever the docked project sidebar opened or
+      closed. It is now `fixed` to the viewport (bottom 24px, horizontally centred), so it stays put. No ancestor has
+      a transform, so `fixed` resolves against the viewport.
+    - New look from the shape panel wireframe: one paper-bright bar with an ink border and flat shadow, 2px corners,
+      cells split by ink hairlines, Archivo labels, the active mode (Select / Pan) as an ink cell with cream text
+      (`aria-pressed`). Same lucide icons; the Select/Pan divider is gone.
+    - Drag-to-canvas, the ghost preview, mode switching and the canvas itself are unchanged.
+- Restyled `CanvasControlBar` to the control bar wireframe (2026-09-15, `components/editor/canvas-control-bar.tsx` only):
+    - Inline dark styles replaced with brand-token Tailwind classes, matching the shape panel: paper-bright bar,
+      ink border, flat shadow, 2px corners. Bottom row is a segmented bar of 36px cells split by ink hairlines
+      (the old gap dividers are gone); delete tints pin-red on hover; disabled undo/redo fade to 35%.
+    - Node/edge formatting panel sits above the bar with a hairline: mono uppercase labels (Fill, Stroke, Arrow,
+      Type, Edge), round swatches with an ink ring when active, arrow/line-style chips that fill ink when active,
+      and a segmented B / I / − size + group. Toggles now expose `aria-pressed`.
+    - All handlers, conditions (including hiding when the project sidebar is open with nothing selected), icons,
+      position and node/edge data values are unchanged. No backend changes.
+- Light canvas ground and a canvas status panel (2026-09-15):
+    - `canvas-flow.tsx`: canvas ground is `paper-cream` with ink dots at 22%; the minimap is a paper-bright card
+      with an ink border, flat shadow, ink node blocks and a light ink mask. The workspace canvas section and the
+      canvas connecting/error text (`canvas-wrapper.tsx`) switched to cream / ink-soft so loading doesn't flash dark.
+    - Nodes, edges and cursors are unchanged: the dark node slabs and grey edges still stand out on cream.
+    - `CanvasPresenceOverlay` is now the top-right canvas status panel: zoom % and node count (mono, read from the
+      React Flow store), then the collaborator avatar stack (amber initials, ink "+N"), then the user button, on a
+      paper-bright card with an ink border and flat shadow.
+    - The docked AI sidebar used to cover that panel. `isAiSidebarOpen` now flows
+      `EditorWorkspaceShell` → `CanvasWrapper` → `CanvasFlow` → `CanvasPresenceOverlay`, which moves left of the
+      sidebar on lg+ (where the sidebar shows). No backend changes.
+- Stopped the project sidebar from shifting the canvas (2026-09-15):
+    - Cause: on md+ the docked `ProjectSidebar` took layout width, so the canvas section narrowed and React Flow's
+      viewport origin (its left edge) moved right with it.
+    - `ProjectSidebar` gained `docked` (default `true`). `EditorWorkspaceShell` passes `docked={false}`, so inside a
+      project the sidebar floats over the canvas (fixed, flat shadow) at every width and the canvas keeps its size.
+      The editor home keeps the docked layout from the wireframe.
+    - `CanvasControlBar`'s existing rule (hide while the sidebar is open and nothing is selected) applies again,
+      since the floating sidebar covers its bottom-left spot.
+- Paper-style canvas nodes, merged node color control, 100% default zoom (2026-09-15):
+    - `canvas-flow.tsx`: `fitViewOptions={{ minZoom: 1, maxZoom: 1 }}`, so the canvas opens centred at 100%.
+      Dropped nodes no longer store white `textColor` / `strokeColor`.
+    - `canvas-node.tsx`: every shape is a paper card from the rectangle reference: 1.5px ink stroke, hard offset
+      shadow (`--shadow-flat`, drop-shadow for SVG shapes), 2px corners on rectangles, a mono uppercase kicker
+      (Service / Event / Decision / Queue / Database / External, shown when the shape is big enough) above a
+      semibold Archivo label (default 14px, left-aligned on rectangles, centred elsewhere, "Untitled" placeholder).
+      Selection thickens the ink stroke; the resizer is a dashed ink line with square paper handles; handles are
+      ink dots. Cylinder side walls redrawn so the fill doesn't show seams.
+    - `types/canvas.ts`: `NODE_FILLS` (paper-bright + the four sticky-note paper accents) and `resolveNodeFill()`,
+      which maps legacy dark palette colors (still written by AI generation and starter templates) to the nearest
+      accent. `NODE_COLOR_PALETTE`, the AI schema and stored data are unchanged.
+    - `canvas-control-bar.tsx`: node Fill and Stroke merged into one Fill row of the five paper fills (labelled
+      swatches). Stroke and text are always ink. Edge colors unchanged.
+- Editable node kicker label (2026-09-15):
+    - `CanvasNodeData.kicker?: string` (types only; the canvas API already accepts any `data` object).
+    - `canvas-node.tsx` shows `data.kicker` when set, otherwise the shape default from the exported `SHAPE_KICKERS`
+      (Service / Event / Decision / Queue / Database / External).
+    - `canvas-control-bar.tsx`: a "Label" input above Fill for the selected node, placeholder = the shape default.
+      Clearing it removes `kicker`, so the node falls back to the default. Max 24 characters. Canvas shortcuts
+      and React Flow's delete key already ignore typing in inputs.
+- Added a free text node for notes and descriptions around other nodes (2026-09-15):
+    - `types/canvas.ts`: `TEXT_NODE_SHAPE = "text"` and `CanvasNodeShape` (drawn shapes + text). `CanvasNodeData.shape`
+      and `SHAPE_DEFAULTS` use it; text has a nominal 160x32 default for drop placement and the design agent's layout
+      offset. `CANVAS_SHAPES` (the AI output schema) is unchanged, so AI generation never emits text nodes.
+    - `shape-panel.tsx`: "Text" tool (lucide `Type`) after Hexagon; dashed ink ghost while dragging.
+    - `canvas-flow.tsx`: dropped text nodes get no `style` width/height, so React Flow sizes them from content.
+    - `canvas-node.tsx`: text nodes have no border, fill or shadow. Archivo 400 ink text (bold/italic/size from the
+      control bar, default 14px), wraps at 320px, "Add text" placeholder. Double-click to edit; the textarea shares a
+      grid cell with an invisible copy of the text, so the node grows while typing. Dashed ink outline only when
+      selected or editing. No resizer; connection handles on hover as usual.
+    - `canvas-control-bar.tsx`: text nodes show only the text controls (no Label or Fill rows).
+- Text notes lose connection handles; edges use four dark colors (2026-09-15):
+    - `canvas-node.tsx`: text nodes no longer render `NodeHandles`, so nothing can connect to a note.
+    - `types/canvas.ts`: `EDGE_COLORS` (Ink default, Graphite `--ink-soft`, Mat green, Pin red) and `resolveEdgeColor()`;
+      missing or legacy palette `colorId`s resolve to ink, so older edges need no data rewrite.
+    - `canvas-edge.tsx`: stroke and arrowheads come from `resolveEdgeColor(colorId)`; one marker per edge color
+      (fill set via `style` so CSS variables resolve). Hover/selection thickens the line (2 to 3px) instead of
+      switching to the old blue. The old zinc default and per-palette rest/active markers are gone.
+    - `canvas-control-bar.tsx`: the Edge row shows exactly those four labelled swatches.

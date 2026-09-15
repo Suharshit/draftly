@@ -10,18 +10,20 @@ import {
   Hexagon,
   MousePointer2,
   Hand,
+  Type,
   type LucideIcon,
 } from "lucide-react";
 
-import type { CanvasShape } from "@/types/canvas";
-import { SHAPE_DEFAULTS } from "@/types/canvas";
+import { cn } from "@/lib/utils";
+import type { CanvasNodeShape } from "@/types/canvas";
+import { SHAPE_DEFAULTS, TEXT_NODE_SHAPE } from "@/types/canvas";
 
 // ---------------------------------------------------------------------------
 // Drag payload format
 // ---------------------------------------------------------------------------
 
 export interface ShapeDragPayload {
-  shape: CanvasShape;
+  shape: CanvasNodeShape;
   width: number;
   height: number;
 }
@@ -33,7 +35,7 @@ export const SHAPE_DRAG_MIME = "application/ghost-shape";
 // ---------------------------------------------------------------------------
 
 interface ShapeEntry {
-  shape: CanvasShape;
+  shape: CanvasNodeShape;
   label: string;
   Icon: LucideIcon;
 }
@@ -45,14 +47,25 @@ const SHAPES: ShapeEntry[] = [
   { shape: "pill",      label: "Pill",      Icon: Pill },
   { shape: "cylinder",  label: "Cylinder",  Icon: Cylinder },
   { shape: "hexagon",   label: "Hexagon",   Icon: Hexagon },
+  { shape: TEXT_NODE_SHAPE, label: "Text",   Icon: Type },
 ];
+
+const MODES: { mode: "select" | "pan"; label: string; Icon: LucideIcon }[] = [
+  { mode: "select", label: "Select", Icon: MousePointer2 },
+  { mode: "pan",    label: "Pan",    Icon: Hand },
+];
+
+const cellClass = cn(
+  "flex min-w-18 shrink-0 flex-col items-center justify-center gap-1.5 border-l border-ink/15 px-4 py-2.5 first:border-l-0",
+  "font-brand text-xs transition-colors outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink/60",
+);
 
 // ---------------------------------------------------------------------------
 // Shape ghost preview — follows cursor while dragging
 // ---------------------------------------------------------------------------
 
 interface DragState {
-  shape: CanvasShape;
+  shape: CanvasNodeShape;
   width: number;
   height: number;
   x: number;
@@ -60,7 +73,7 @@ interface DragState {
 }
 
 /** Returns inline styles that mimic the canvas node shape for the given shape type. */
-function getGhostStyle(shape: CanvasShape, width: number, height: number): React.CSSProperties {
+function getGhostStyle(shape: CanvasNodeShape, width: number, height: number): React.CSSProperties {
   const base: React.CSSProperties = {
     width,
     height,
@@ -112,6 +125,8 @@ function getGhostStyle(shape: CanvasShape, width: number, height: number): React
         backgroundSize: "100% 100%",
       };
     }
+    case TEXT_NODE_SHAPE:
+      return { ...base, background: "transparent", border: "1px dashed var(--ink)", borderRadius: 2 };
     case "rectangle":
     default:
       return { ...base, borderRadius: 6 };
@@ -210,62 +225,37 @@ export function ShapePanel({
     <>
       {drag && <ShapeGhostPreview drag={drag} />}
 
+      {/* Fixed to the viewport, not the canvas, so opening either sidebar doesn't shift it. */}
       <div
-        className="pointer-events-none absolute inset-x-0 bottom-6 z-10 flex justify-center"
+        className="pointer-events-none fixed inset-x-0 bottom-6 z-10 flex justify-center px-4 scheme-light"
         aria-label="Shape panel"
       >
         <div
-          className="pointer-events-auto flex items-center gap-1 rounded-full border border-(--border-default) bg-(--bg-surface) px-3 py-2 shadow-lg"
+          className="pointer-events-auto flex max-w-full overflow-x-auto rounded-paper border border-ink bg-paper-bright shadow-flat"
           role="toolbar"
           aria-label="Draggable shapes"
         >
-          <button
-            type="button"
-            onClick={() => onModeChange("select")}
-            title="Select"
-            aria-label="Select"
-            className={`group flex flex-col items-center gap-1 rounded-lg px-2.5 py-2 transition-colors ${
-              mode === "select" ? "bg-(--accent-primary)/15" : "hover:bg-(--accent-primary)/10"
-            }`}
-          >
-            <MousePointer2
-              className={`h-5 w-5 transition-colors ${
-                mode === "select" ? "text-(--accent-primary)" : "text-(--text-muted) group-hover:text-(--accent-primary)"
-              }`}
-              strokeWidth={1.5}
-            />
-            <span
-              className={`text-[10px] leading-none transition-colors ${
-                mode === "select" ? "text-(--text-primary)" : "text-(--text-muted) group-hover:text-(--text-primary)"
-              }`}
-            >
-              Select
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onModeChange("pan")}
-            title="Pan"
-            aria-label="Pan"
-            className={`group flex flex-col items-center gap-1 rounded-lg px-2.5 py-2 transition-colors ${
-              mode === "pan" ? "bg-(--accent-primary)/15" : "hover:bg-(--accent-primary)/10"
-            }`}
-          >
-            <Hand
-              className={`h-5 w-5 transition-colors ${
-                mode === "pan" ? "text-(--accent-primary)" : "text-(--text-muted) group-hover:text-(--accent-primary)"
-              }`}
-              strokeWidth={1.5}
-            />
-            <span
-              className={`text-[10px] leading-none transition-colors ${
-                mode === "pan" ? "text-(--text-primary)" : "text-(--text-muted) group-hover:text-(--text-primary)"
-              }`}
-            >
-              Pan
-            </span>
-          </button>
-          <div className="mx-1 h-7 w-px bg-(--border-default)" aria-hidden />
+          {MODES.map(({ mode: entryMode, label, Icon }) => {
+            const isActive = mode === entryMode;
+
+            return (
+              <button
+                key={entryMode}
+                type="button"
+                onClick={() => onModeChange(entryMode)}
+                title={label}
+                aria-label={label}
+                aria-pressed={isActive}
+                className={cn(
+                  cellClass,
+                  isActive ? "bg-ink font-semibold text-paper-cream" : "text-ink hover:bg-ink/5",
+                )}
+              >
+                <Icon className="h-5 w-5" strokeWidth={1.5} />
+                <span className="leading-none">{label}</span>
+              </button>
+            );
+          })}
           {SHAPES.map((entry) => (
             <button
               key={entry.shape}
@@ -275,15 +265,10 @@ export function ShapePanel({
               onDragEnd={handleDragEnd}
               title={entry.label}
               aria-label={`Drag ${entry.label} shape onto canvas`}
-              className="group flex cursor-grab flex-col items-center gap-1 rounded-lg px-2.5 py-2 transition-colors hover:bg-(--accent-primary)/10 active:cursor-grabbing"
+              className={cn(cellClass, "cursor-grab text-ink hover:bg-ink/5 active:cursor-grabbing")}
             >
-              <entry.Icon
-                className="h-5 w-5 text-(--text-muted) transition-colors group-hover:text-(--accent-primary)"
-                strokeWidth={1.5}
-              />
-              <span className="text-[10px] leading-none text-(--text-muted) transition-colors group-hover:text-(--text-primary)">
-                {entry.label}
-              </span>
+              <entry.Icon className="h-5 w-5" strokeWidth={1.5} />
+              <span className="leading-none">{entry.label}</span>
             </button>
           ))}
         </div>

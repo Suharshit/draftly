@@ -11,8 +11,9 @@ Update this file whenever the current phase, active feature, or implementation s
 - Persistent, multi-turn AI design sessions (plan: storage → wire sessions → turn engine → UI cards → generation
   quality → docs). Steps 1 (storage, PR #21), 2 (sessions in the sidebar, PR #22) and 3 (clarify → plan → generate
   turn engine, PR #23) and 4 (question/plan/result cards, PR #25) are done; step 5 (generation quality: canvas
-  context, roles and kickers, async edges, validate-and-repair) is built on `feat/ai-generation-quality` and
-  awaiting its live run; step 6 (docs) follows, then the Specs tab.
+  context, roles and kickers, async edges, validate-and-repair, PR #26) is done; step 6 (docs) is on
+  `feat/ai-sessions-docs`. Next: the Specs tab (Generate Spec + automatic Markdown download), which can reuse the
+  plan decisions stored in RESULT payloads.
 - After that: the Specs tab (Generate Spec + automatic Markdown download), which remains inert.
 
 ## Completed
@@ -1426,3 +1427,42 @@ Update this file whenever the current phase, active feature, or implementation s
       `design-agent-engine.ts` now strips parenthesised refs ("(ex-7)", "(ex-4, ex-5)") from the plan summary,
       responsibilities, flows, decisions, and assumptions after drafting; other parentheses are left alone. Covered
       by 3 more offline checks.
+- AI sessions, step 6: documentation refresh (2026-09-16, branch `feat/ai-sessions-docs`, docs only, no code):
+    - `docs.md` is listed in `.gitignore` (and has never been committed), so its refresh below stays in the local
+      working copy by decision; the branch commits `README.md` and the context files only.
+    - `docs.md`:
+      - AI category rewritten: **AI design sessions** (flow diagram, guide through the questions / plan / result
+        cards, stages, code-enforced rules, the Microservices extend example from the live run, error messages),
+        **How generation works** (turn steps with files, output contract with roles / kickers / delivery / refs,
+        validation checks, models, thinking, timeouts, retries), **Sessions & storage** (models, limits, settle on
+        read, cleanup cron), **Run tracking & tokens** (example now `useAiSession` + turns route), and **Spec
+        generation** (still planned; notes the stored plan decisions). The planned "AI sessions" page and "Diagram
+        from prompt" are gone; the sidebar nav matches.
+      - Getting started: goal 4, core user flow rows 5–6, and the worked example describe clarify → plan → draw.
+        Quickstart adds Vercel Cron / `CRON_SECRET`, the AI session migrations, and restarting the worker after a
+        model change.
+      - Reference: API routes (session and turns routes and the cleanup cron replace `/api/ai/design`), data models
+        (`AiSession`, `AiMessage`, `Project.aiSessions`), canvas types (`SHAPE_KICKERS`, fills, roles, edge colours,
+        text nodes, legacy palette), hooks (`useAiSession`), environment variables (`CRON_SECRET`, model notes).
+      - Contributing: spec index rows S1–S6 with their PRs; stack (`generateText` + `Output.object`, Vercel Cron),
+        `lib/ai/` boundary, storage table row for AI chats, invariant 6 widened and invariant 9 added; the stale note
+        about `project-overview.md` saying "filesystem" removed.
+      - Roadmap: AI design sessions and chat sessions are `BETA`; known issues replace the fixed ones (no run
+        timeout, conversation lost on reload, "filesystem" wording) with current ones (adds only, private sessions,
+        free-tier quota, preview-model timeouts); five new architecture decisions; a 2026-09-15 → 16 history row.
+    - `context/architecture-context.md`: new "AI Design Agent" section (turn = run, turn steps, code-enforced rules,
+      settle on read, reliability, model config) and invariants 5–9.
+    - `context/project-overview.md`: canvas snapshots are in Vercel Blob (was "filesystem"); AI section adds the
+      chat cards and canvas-aware generation, and notes it does not edit or remove existing components.
+    - `context/ui-context.md`: the AI sidebar session bar, saved-chat list, and chat cards follow the paper conventions.
+    - `README.md`: "AI design agent (local)" setup — API key and model, migrations, running and restarting the worker,
+      `CRON_SECRET` in production.
+    - Validation:
+      - A grep for stale references (`/api/ai/design` outside the token route, `useDesignAgent`, `generateObject`,
+        "Diagram from prompt", "lost on reload", "filesystem") across `docs.md`, `README.md`, and the context files
+        found one: the Collaboration → Thinking indicator paragraph, now describing AI turns and linking to
+        "AI design sessions". The only other match is the intended legacy-palette row in Canvas types.
+      - A check of every in-doc anchor link in `docs.md` against its headings: all resolve after that fix.
+      - Section order after the splice: Getting started, Platform, AI, Authentication, Design system, Reference,
+        Contributing, Roadmap.
+      - No code changed, so lint, typecheck, and build were not re-run.

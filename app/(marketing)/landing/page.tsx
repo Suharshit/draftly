@@ -68,7 +68,7 @@ export default function LandingPage() {
             </p>
 
             <div className="mt-(--space-5) flex flex-wrap items-center justify-center gap-(--space-5)">
-              <MarketingButton href="/dashboard">Start creating</MarketingButton>
+              <MarketingButton href="/editor">Start creating</MarketingButton>
               <MarketingButton href="/docs" variant="quiet">
                 see how it works
               </MarketingButton>

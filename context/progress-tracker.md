@@ -968,3 +968,9 @@ Update this file whenever the current phase, active feature, or implementation s
       recoverable with `git show f9711dc:<path>`.
     - Spec names in this file stay as labels (see the note at the top of "Completed"). `context/` now holds
       only the six `AGENTS.md` context files plus the gitignored `things-to-rember.md`.
+- Pointed onboarding at the editor instead of the dashboard (2026-09-15, `app/(marketing)/landing/page.tsx`):
+    - The hero "Start creating" button linked to `/dashboard`, so a new user signed in via
+      `/sign-in?redirect_url=/dashboard` and landed on the empty dashboard placeholder. It now links to `/editor`,
+      so sign-in returns them straight to the editor home.
+    - `/` already redirected signed-in users to `/editor`; unchanged. `/dashboard` still exists as a placeholder
+      but nothing links to it now.

@@ -1040,3 +1040,43 @@ Update this file whenever the current phase, active feature, or implementation s
       The editor home keeps the docked layout from the wireframe.
     - `CanvasControlBar`'s existing rule (hide while the sidebar is open and nothing is selected) applies again,
       since the floating sidebar covers its bottom-left spot.
+- Paper-style canvas nodes, merged node color control, 100% default zoom (2026-09-15):
+    - `canvas-flow.tsx`: `fitViewOptions={{ minZoom: 1, maxZoom: 1 }}`, so the canvas opens centred at 100%.
+      Dropped nodes no longer store white `textColor` / `strokeColor`.
+    - `canvas-node.tsx`: every shape is a paper card from the rectangle reference: 1.5px ink stroke, hard offset
+      shadow (`--shadow-flat`, drop-shadow for SVG shapes), 2px corners on rectangles, a mono uppercase kicker
+      (Service / Event / Decision / Queue / Database / External, shown when the shape is big enough) above a
+      semibold Archivo label (default 14px, left-aligned on rectangles, centred elsewhere, "Untitled" placeholder).
+      Selection thickens the ink stroke; the resizer is a dashed ink line with square paper handles; handles are
+      ink dots. Cylinder side walls redrawn so the fill doesn't show seams.
+    - `types/canvas.ts`: `NODE_FILLS` (paper-bright + the four sticky-note paper accents) and `resolveNodeFill()`,
+      which maps legacy dark palette colors (still written by AI generation and starter templates) to the nearest
+      accent. `NODE_COLOR_PALETTE`, the AI schema and stored data are unchanged.
+    - `canvas-control-bar.tsx`: node Fill and Stroke merged into one Fill row of the five paper fills (labelled
+      swatches). Stroke and text are always ink. Edge colors unchanged.
+- Editable node kicker label (2026-09-15):
+    - `CanvasNodeData.kicker?: string` (types only; the canvas API already accepts any `data` object).
+    - `canvas-node.tsx` shows `data.kicker` when set, otherwise the shape default from the exported `SHAPE_KICKERS`
+      (Service / Event / Decision / Queue / Database / External).
+    - `canvas-control-bar.tsx`: a "Label" input above Fill for the selected node, placeholder = the shape default.
+      Clearing it removes `kicker`, so the node falls back to the default. Max 24 characters. Canvas shortcuts
+      and React Flow's delete key already ignore typing in inputs.
+- Added a free text node for notes and descriptions around other nodes (2026-09-15):
+    - `types/canvas.ts`: `TEXT_NODE_SHAPE = "text"` and `CanvasNodeShape` (drawn shapes + text). `CanvasNodeData.shape`
+      and `SHAPE_DEFAULTS` use it; text has a nominal 160x32 default for drop placement and the design agent's layout
+      offset. `CANVAS_SHAPES` (the AI output schema) is unchanged, so AI generation never emits text nodes.
+    - `shape-panel.tsx`: "Text" tool (lucide `Type`) after Hexagon; dashed ink ghost while dragging.
+    - `canvas-flow.tsx`: dropped text nodes get no `style` width/height, so React Flow sizes them from content.
+    - `canvas-node.tsx`: text nodes have no border, fill or shadow. Archivo 400 ink text (bold/italic/size from the
+      control bar, default 14px), wraps at 320px, "Add text" placeholder. Double-click to edit; the textarea shares a
+      grid cell with an invisible copy of the text, so the node grows while typing. Dashed ink outline only when
+      selected or editing. No resizer; connection handles on hover as usual.
+    - `canvas-control-bar.tsx`: text nodes show only the text controls (no Label or Fill rows).
+- Text notes lose connection handles; edges use four dark colors (2026-09-15):
+    - `canvas-node.tsx`: text nodes no longer render `NodeHandles`, so nothing can connect to a note.
+    - `types/canvas.ts`: `EDGE_COLORS` (Ink default, Graphite `--ink-soft`, Mat green, Pin red) and `resolveEdgeColor()`;
+      missing or legacy palette `colorId`s resolve to ink, so older edges need no data rewrite.
+    - `canvas-edge.tsx`: stroke and arrowheads come from `resolveEdgeColor(colorId)`; one marker per edge color
+      (fill set via `style` so CSS variables resolve). Hover/selection thickens the line (2 to 3px) instead of
+      switching to the old blue. The old zinc default and per-palette rest/active markers are gone.
+    - `canvas-control-bar.tsx`: the Edge row shows exactly those four labelled swatches.

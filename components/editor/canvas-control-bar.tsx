@@ -16,7 +16,8 @@ import { useCanRedo, useCanUndo, useRedo, useUndo } from "@liveblocks/react";
 import { useEdges, useNodes, useReactFlow } from "@xyflow/react";
 
 import { cn } from "@/lib/utils";
-import { NODE_COLOR_PALETTE } from "@/types/canvas";
+import { DEFAULT_NODE_FONT_SIZE, SHAPE_KICKERS } from "@/components/editor/canvas-node";
+import { EDGE_COLORS, NODE_FILLS, resolveEdgeColor, resolveNodeFill, TEXT_NODE_SHAPE } from "@/types/canvas";
 import type { CanvasEdge, CanvasNode } from "@/types/canvas";
 
 interface CanvasControlBarProps {
@@ -91,18 +92,51 @@ export function CanvasControlBar({
     <div className="absolute bottom-6 left-6 z-10 flex flex-col rounded-paper border border-ink bg-paper-bright text-ink shadow-flat scheme-light">
       {canShowFormatting && selectedNode ? (
         <div className="flex flex-col gap-2.5 border-b border-ink/15 p-3">
-          {/* Fill Color */}
+          {/* Free text nodes have no kicker or fill — only the text controls apply. */}
+          {selectedNode.data.shape !== TEXT_NODE_SHAPE ? (
+          <>
+          {/* Kicker label above the node name. Empty falls back to the shape default. */}
+          <FormatRow label="Label">
+            <input
+              type="text"
+              value={selectedNode.data.kicker ?? ""}
+              placeholder={SHAPE_KICKERS[selectedNode.data.shape ?? "rectangle"]}
+              maxLength={24}
+              aria-label="Node label"
+              onChange={(event) => {
+                const kicker = event.target.value;
+                setNodes((nodes) =>
+                  nodes.map((node) =>
+                    node.id === selectedNode.id
+                      ? { ...node, data: { ...node.data, kicker: kicker === "" ? undefined : kicker } }
+                      : node,
+                  ),
+                );
+              }}
+              className={cn(
+                "h-7 w-38 rounded-paper border border-ink/20 bg-paper-cream px-2",
+                "font-mono text-chrome tracking-chrome text-ink uppercase placeholder:text-ink-soft/60",
+                "transition-colors hover:border-ink focus:border-ink",
+                focusClass,
+              )}
+            />
+          </FormatRow>
+
+          <HorizontalDivider />
+
+          {/* Fill — sticky-note accents. Stroke and text are always ink. */}
           <FormatRow label="Fill">
-            {NODE_COLOR_PALETTE.map((pair) => (
+            {NODE_FILLS.map((fill) => (
               <ColorButton
-                key={`fill-${pair.id}`}
-                color={pair.bg}
-                active={(selectedNode.data.color ?? NODE_COLOR_PALETTE[0].bg) === pair.bg}
+                key={`fill-${fill.id}`}
+                color={fill.value}
+                label={fill.label}
+                active={resolveNodeFill(selectedNode.data.color).id === fill.id}
                 onClick={() => {
                   setNodes((nodes) =>
                     nodes.map((node) =>
                       node.id === selectedNode.id
-                        ? { ...node, data: { ...node.data, color: pair.bg, textColor: pair.text } }
+                        ? { ...node, data: { ...node.data, color: fill.value } }
                         : node,
                     ),
                   );
@@ -112,34 +146,14 @@ export function CanvasControlBar({
           </FormatRow>
 
           <HorizontalDivider />
-
-          {/* Stroke Color */}
-          <FormatRow label="Stroke">
-            {NODE_COLOR_PALETTE.map((pair) => (
-              <ColorButton
-                key={`stroke-${pair.id}`}
-                color={pair.text}
-                active={(selectedNode.data.strokeColor ?? "var(--border-default)") === pair.text}
-                onClick={() => {
-                  setNodes((nodes) =>
-                    nodes.map((node) =>
-                      node.id === selectedNode.id
-                        ? { ...node, data: { ...node.data, strokeColor: pair.text, textColor: pair.text } }
-                        : node,
-                    ),
-                  );
-                }}
-              />
-            ))}
-          </FormatRow>
-
-          <HorizontalDivider />
+          </>
+          ) : null}
 
           <div className="flex justify-center">
             <TextControls
               bold={!!selectedNode.data.bold}
               italic={!!selectedNode.data.italic}
-              fontSize={selectedNode.data.fontSize ?? 12}
+              fontSize={selectedNode.data.fontSize ?? DEFAULT_NODE_FONT_SIZE}
               onBold={() =>
                 setNodes((nodes) =>
                   nodes.map((node) =>
@@ -164,7 +178,7 @@ export function CanvasControlBar({
                     node.id === selectedNode.id
                       ? {
                           ...node,
-                          data: { ...node.data, fontSize: Math.max(8, (node.data.fontSize ?? 12) - 1) },
+                          data: { ...node.data, fontSize: Math.max(8, (node.data.fontSize ?? DEFAULT_NODE_FONT_SIZE) - 1) },
                         }
                       : node,
                   ),
@@ -176,7 +190,7 @@ export function CanvasControlBar({
                     node.id === selectedNode.id
                       ? {
                           ...node,
-                          data: { ...node.data, fontSize: Math.min(48, (node.data.fontSize ?? 12) + 1) },
+                          data: { ...node.data, fontSize: Math.min(48, (node.data.fontSize ?? DEFAULT_NODE_FONT_SIZE) + 1) },
                         }
                       : node,
                   ),
@@ -234,16 +248,17 @@ export function CanvasControlBar({
           <HorizontalDivider />
 
           <FormatRow label="Edge">
-            {NODE_COLOR_PALETTE.map((pair) => (
+            {EDGE_COLORS.map((color) => (
               <ColorButton
-                key={pair.id}
-                color={pair.text}
-                active={(selectedEdge.data?.color ?? "") === pair.text}
+                key={color.id}
+                color={color.value}
+                label={color.label}
+                active={resolveEdgeColor(selectedEdge.data?.colorId).id === color.id}
                 onClick={() => {
                   setEdges((edges) =>
                     edges.map((edge) =>
                       edge.id === selectedEdge.id
-                        ? { ...edge, data: { ...edge.data, color: pair.text, colorId: pair.id } }
+                        ? { ...edge, data: { ...edge.data, color: color.value, colorId: color.id } }
                         : edge,
                     ),
                   );
@@ -447,15 +462,17 @@ function SymbolButton({ label, symbol, active, onClick }: SymbolButtonProps) {
 
 interface ColorButtonProps {
   color: string;
+  label?: string;
   active: boolean;
   onClick: () => void;
 }
 
-function ColorButton({ color, active, onClick }: ColorButtonProps) {
+function ColorButton({ color, label = "Set color", active, onClick }: ColorButtonProps) {
   return (
     <button
       type="button"
-      aria-label="Set color"
+      aria-label={label}
+      title={label}
       aria-pressed={active}
       onClick={(event) => {
         event.stopPropagation();

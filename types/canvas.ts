@@ -17,14 +17,25 @@ export const CANVAS_SHAPES = [
 /** All supported draggable shapes. */
 export type CanvasShape = (typeof CANVAS_SHAPES)[number];
 
+/**
+ * Free text node: no outline, sized by its content. Kept out of `CANVAS_SHAPES` (the AI output schema),
+ * so generated designs never contain one.
+ */
+export const TEXT_NODE_SHAPE = "text" as const;
+
+/** Every node shape the canvas renders: the drawn shapes plus the free text node. */
+export type CanvasNodeShape = CanvasShape | typeof TEXT_NODE_SHAPE;
+
 /** Default width / height for each shape (pixels). */
-export const SHAPE_DEFAULTS: Record<CanvasShape, { width: number; height: number }> = {
+export const SHAPE_DEFAULTS: Record<CanvasNodeShape, { width: number; height: number }> = {
   rectangle: { width: 110, height: 54 },
   circle:    { width: 72,  height: 72 },
   diamond:   { width: 90,  height: 90 },
   pill:      { width: 110, height: 46 },
   cylinder:  { width: 82,  height: 72 },
   hexagon:   { width: 90,  height: 90 },
+  /** Nominal only (drop placement, layout offsets). Text nodes are sized by their content. */
+  text:      { width: 160, height: 32 },
 };
 
 // ---------------------------------------------------------------------------
@@ -72,6 +83,47 @@ export const NODE_COLOR_PALETTE: NodeColorPair[] = [
   { id: "pink",    label: "Pink",    bg: "#500724", text: "#f9a8d4" },
 ];
 
+/** A node fill: paper or one of the sticky-note paper accents from `app/globals.css`. */
+export interface NodeFill {
+  id: "paper" | "amber" | "coral" | "sage" | "blue";
+  label: string;
+  /** CSS color stored in `CanvasNodeData.color`. */
+  value: string;
+}
+
+/** Node fills offered in the control bar. Node stroke and text are always ink. */
+export const NODE_FILLS: NodeFill[] = [
+  { id: "paper", label: "Paper",        value: "var(--paper-bright)" },
+  { id: "amber", label: "Marker amber", value: "var(--paper-accent-marker-amber)" },
+  { id: "coral", label: "Scrap coral",  value: "var(--paper-accent-scrap-coral)" },
+  { id: "sage",  label: "Cut sage",     value: "var(--paper-accent-cut-sage)" },
+  { id: "blue",  label: "Draft blue",   value: "var(--paper-accent-draft-blue)" },
+];
+
+/**
+ * Legacy dark palette entries (still written by AI generation and starter templates) mapped to the
+ * nearest paper fill, so older nodes render in the paper style without rewriting stored data.
+ */
+const LEGACY_FILL_IDS: Record<NodeColorId, NodeFill["id"]> = {
+  default: "paper",
+  blue:    "blue",
+  purple:  "blue",
+  green:   "sage",
+  teal:    "sage",
+  amber:   "amber",
+  red:     "coral",
+  pink:    "coral",
+};
+
+/** Resolves a stored node color (paper fill, legacy palette hex, or nothing) to a paper fill. */
+export function resolveNodeFill(color: string | undefined): NodeFill {
+  const direct = NODE_FILLS.find((fill) => fill.value === color);
+  if (direct) return direct;
+  const legacy = NODE_COLOR_PALETTE.find((pair) => pair.bg === color);
+  const fillId = legacy ? LEGACY_FILL_IDS[legacy.id] : "paper";
+  return NODE_FILLS.find((fill) => fill.id === fillId) ?? NODE_FILLS[0];
+}
+
 // ---------------------------------------------------------------------------
 // Node / edge types
 // ---------------------------------------------------------------------------
@@ -94,7 +146,9 @@ export interface CanvasNodeData extends Record<string, unknown> {
   italic?: boolean;
   /** Node label font size in pixels. Default 12. */
   fontSize?: number;
-  shape?: CanvasShape;
+  /** Small mono label above the node name. Undefined = the shape's default (e.g. "Service"). */
+  kicker?: string;
+  shape?: CanvasNodeShape;
 }
 
 /** Supported edge arrowhead directions, as a value list usable for runtime validation. */
@@ -102,6 +156,27 @@ export const EDGE_ARROW_DIRECTIONS = ["none", "forward", "backward", "bidirectio
 
 /** Direction of arrowheads rendered on a canvas edge. */
 export type CanvasArrowDirection = (typeof EDGE_ARROW_DIRECTIONS)[number];
+
+/** An edge stroke color. Dark brand tokens only, so lines read on the paper canvas. */
+export interface EdgeColor {
+  id: "ink" | "graphite" | "green" | "red";
+  label: string;
+  /** CSS color, used for both the stroke and the arrowhead marker fill. */
+  value: string;
+}
+
+/** The four edge colors offered in the control bar. The first is the default. */
+export const EDGE_COLORS: EdgeColor[] = [
+  { id: "ink",      label: "Ink",       value: "var(--ink)" },
+  { id: "graphite", label: "Graphite",  value: "var(--ink-soft)" },
+  { id: "green",    label: "Mat green", value: "var(--mat-green)" },
+  { id: "red",      label: "Pin red",   value: "var(--paper-pin-red)" },
+];
+
+/** Resolves a stored edge `colorId` to an edge color. Missing or legacy palette ids fall back to ink. */
+export function resolveEdgeColor(colorId: string | undefined): EdgeColor {
+  return EDGE_COLORS.find((color) => color.id === colorId) ?? EDGE_COLORS[0];
+}
 
 /**
  * Data payload carried by every canvas edge.
@@ -119,14 +194,11 @@ export interface CanvasEdgeData extends Record<string, unknown> {
    * 'bidirectional' — arrowheads at both ends
    */
   arrowDirection?: CanvasArrowDirection;
-  /**
-   * Custom stroke color (hex). When defined uses pair.text from NODE_COLOR_PALETTE
-   * for high visibility. Undefined = default zinc gray.
-   */
+  /** Stroke color value from `EDGE_COLORS`. Rendering reads `colorId`; this is kept for older readers. */
   color?: string;
   /**
-   * Matching palette entry id so arrowhead markers resolve to the correct color.
-   * Undefined = default marker pair.
+   * `EDGE_COLORS` id; the stroke and arrowhead markers resolve from it.
+   * Undefined or a legacy palette id = ink.
    */
   colorId?: string;
   /** Whether the edge label is rendered bold. */

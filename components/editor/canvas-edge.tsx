@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, Fragment } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   getSmoothStepPath,
   EdgeLabelRenderer,
@@ -11,15 +11,14 @@ import {
 } from "@xyflow/react";
 
 import type { CanvasEdgeData } from "@/types/canvas";
-import { CANVAS_EDGE_TYPE, NODE_COLOR_PALETTE } from "@/types/canvas";
+import { CANVAS_EDGE_TYPE, EDGE_COLORS, resolveEdgeColor } from "@/types/canvas";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const COLOR_REST   = "#52525b"; // slightly brighter dim gray
-const COLOR_ACTIVE = "#3b82f6"; // var(--accent-primary) as a literal for SVG markers
-const STROKE_WIDTH = 2;
+const STROKE_WIDTH        = 2;
+const STROKE_WIDTH_ACTIVE = 3; // hover / selected: same color, heavier line
 const HIT_WIDTH    = 18; // wide invisible path for easy hover/click
 
 // ---------------------------------------------------------------------------
@@ -27,8 +26,7 @@ const HIT_WIDTH    = 18; // wide invisible path for easy hover/click
 // ---------------------------------------------------------------------------
 
 /**
- * Renders one pair of SVG `<marker>` defs per NODE_COLOR_PALETTE entry, plus
- * the default rest/active pair.  Must be mounted once in the canvas wrapper.
+ * Renders one SVG `<marker>` def per EDGE_COLORS entry. Must be mounted once in the canvas wrapper.
  */
 export function CanvasEdgeMarkerDefs() {
   return (
@@ -37,22 +35,8 @@ export function CanvasEdgeMarkerDefs() {
       aria-hidden
     >
       <defs>
-        {/* Default markers */}
-        <ArrowMarker id="canvas-arrow-default-rest"   color={COLOR_REST}   />
-        <ArrowMarker id="canvas-arrow-default-active" color={COLOR_ACTIVE} />
-
-        {/* Per-palette-entry markers */}
-        {NODE_COLOR_PALETTE.map((pair) => (
-          <Fragment key={pair.id}>
-            <ArrowMarker
-              id={`canvas-arrow-${pair.id}-rest`}
-              color={pair.text}
-            />
-            <ArrowMarker
-              id={`canvas-arrow-${pair.id}-active`}
-              color={pair.text}
-            />
-          </Fragment>
+        {EDGE_COLORS.map((color) => (
+          <ArrowMarker key={color.id} id={`canvas-arrow-${color.id}`} color={color.value} />
         ))}
       </defs>
     </svg>
@@ -70,7 +54,8 @@ function ArrowMarker({ id, color }: { id: string; color: string }) {
       markerHeight="6"
       orient="auto-start-reverse"
     >
-      <path d="M 0 0 L 10 5 L 0 10 z" fill={color} />
+      {/* style, not the fill attribute, so CSS custom properties resolve */}
+      <path d="M 0 0 L 10 5 L 0 10 z" style={{ fill: color }} />
     </marker>
   );
 }
@@ -79,9 +64,8 @@ function ArrowMarker({ id, color }: { id: string; color: string }) {
 // Marker ID helpers
 // ---------------------------------------------------------------------------
 
-function markerId(colorId: string | undefined, state: "rest" | "active"): string {
-  const palette = colorId ?? "default";
-  return `url(#canvas-arrow-${palette}-${state})`;
+function markerId(colorId: string | undefined): string {
+  return `url(#canvas-arrow-${resolveEdgeColor(colorId).id})`;
 }
 
 // ---------------------------------------------------------------------------
@@ -445,12 +429,8 @@ export function CanvasEdgeComponent({
   const isActive = isHovered || !!selected;
 
   // ── Stroke color ──────────────────────────────────────────────────────────
-  // If data.color is set use it; otherwise use default rest/active colors.
-  const strokeColor = data?.color
-    ? data.color
-    : isActive
-      ? "var(--accent-primary)"
-      : COLOR_REST;
+  // Always one of the four dark edge colors; hover/selection thickens the line instead.
+  const strokeColor = resolveEdgeColor(data?.colorId).value;
 
   const edgeStyle = data?.edgeStyle ?? "solid";
   const strokeDasharray =
@@ -462,16 +442,15 @@ export function CanvasEdgeComponent({
 
   // ── Arrowhead direction ───────────────────────────────────────────────────
   const direction = data?.arrowDirection ?? "none";
-  const state     = isActive ? "active" : "rest";
-  const colorId   = data?.colorId; // undefined → default marker pair
+  const colorId   = data?.colorId; // undefined or legacy id → ink
 
   const markerEnd   =
     direction === "forward" || direction === "bidirectional"
-      ? markerId(colorId, state)
+      ? markerId(colorId)
       : undefined;
   const markerStart =
     direction === "backward" || direction === "bidirectional"
-      ? markerId(colorId, state)
+      ? markerId(colorId)
       : undefined;
 
   const [edgePath, labelX, labelY] = getSmoothStepPath({
@@ -495,10 +474,10 @@ export function CanvasEdgeComponent({
         markerStart={markerStart}
         style={{
           stroke: strokeColor,
-          strokeWidth: STROKE_WIDTH,
+          strokeWidth: isActive ? STROKE_WIDTH_ACTIVE : STROKE_WIDTH,
           strokeLinecap: "round",
           strokeDasharray,
-          transition: "stroke 0.15s ease",
+          transition: "stroke-width 0.15s ease",
           fill: "none",
         }}
       />

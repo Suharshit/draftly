@@ -10,19 +10,20 @@ import {
   Hexagon,
   MousePointer2,
   Hand,
+  Type,
   type LucideIcon,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { CanvasShape } from "@/types/canvas";
-import { SHAPE_DEFAULTS } from "@/types/canvas";
+import type { CanvasNodeShape } from "@/types/canvas";
+import { SHAPE_DEFAULTS, TEXT_NODE_SHAPE } from "@/types/canvas";
 
 // ---------------------------------------------------------------------------
 // Drag payload format
 // ---------------------------------------------------------------------------
 
 export interface ShapeDragPayload {
-  shape: CanvasShape;
+  shape: CanvasNodeShape;
   width: number;
   height: number;
 }
@@ -34,7 +35,7 @@ export const SHAPE_DRAG_MIME = "application/ghost-shape";
 // ---------------------------------------------------------------------------
 
 interface ShapeEntry {
-  shape: CanvasShape;
+  shape: CanvasNodeShape;
   label: string;
   Icon: LucideIcon;
 }
@@ -46,6 +47,7 @@ const SHAPES: ShapeEntry[] = [
   { shape: "pill",      label: "Pill",      Icon: Pill },
   { shape: "cylinder",  label: "Cylinder",  Icon: Cylinder },
   { shape: "hexagon",   label: "Hexagon",   Icon: Hexagon },
+  { shape: TEXT_NODE_SHAPE, label: "Text",   Icon: Type },
 ];
 
 const MODES: { mode: "select" | "pan"; label: string; Icon: LucideIcon }[] = [
@@ -63,7 +65,7 @@ const cellClass = cn(
 // ---------------------------------------------------------------------------
 
 interface DragState {
-  shape: CanvasShape;
+  shape: CanvasNodeShape;
   width: number;
   height: number;
   x: number;
@@ -71,7 +73,7 @@ interface DragState {
 }
 
 /** Returns inline styles that mimic the canvas node shape for the given shape type. */
-function getGhostStyle(shape: CanvasShape, width: number, height: number): React.CSSProperties {
+function getGhostStyle(shape: CanvasNodeShape, width: number, height: number): React.CSSProperties {
   const base: React.CSSProperties = {
     width,
     height,
@@ -123,6 +125,8 @@ function getGhostStyle(shape: CanvasShape, width: number, height: number): React
         backgroundSize: "100% 100%",
       };
     }
+    case TEXT_NODE_SHAPE:
+      return { ...base, background: "transparent", border: "1px dashed var(--ink)", borderRadius: 2 };
     case "rectangle":
     default:
       return { ...base, borderRadius: 6 };

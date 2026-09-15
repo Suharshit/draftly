@@ -19,13 +19,8 @@ import {
   type Node,
 } from "@xyflow/react";
 
-import type { CanvasNodeData, CanvasShape } from "@/types/canvas";
-// import { NODE_COLOR_PALETTE } from "@/types/canvas";
-// import type { NodeColorPair } from "@/types/canvas";
-
-// type NodeDataUpdate = Partial<
-//   Pick<CanvasNodeData, "color" | "textColor" | "strokeColor" | "bold" | "italic" | "fontSize">
-// >;
+import { resolveNodeFill, TEXT_NODE_SHAPE } from "@/types/canvas";
+import type { CanvasNodeData, CanvasNodeShape } from "@/types/canvas";
 
 // ---------------------------------------------------------------------------
 // Handles — source + target at every cardinal position
@@ -35,8 +30,8 @@ import type { CanvasNodeData, CanvasShape } from "@/types/canvas";
 const HANDLE_STYLE_BASE: React.CSSProperties = {
   width: 7,
   height: 7,
-  background: "var(--text-primary)", // small white dot
-  border: "1px solid var(--bg-surface)",
+  background: "var(--ink)",
+  border: "1px solid var(--paper-bright)",
   borderRadius: "50%",
   transition: "opacity 0.15s ease",
 };
@@ -81,15 +76,90 @@ function NodeHandles({ nodeId, isHovered }: { nodeId: string; isHovered: boolean
 }
 
 // ---------------------------------------------------------------------------
-// Shared rendering constants
+// Shared rendering constants — paper card: ink hairline, hard offset shadow
 // ---------------------------------------------------------------------------
 
-const STROKE_REST     = "var(--border-default)";
-const STROKE_SELECTED = "var(--accent-primary)";
-const DEFAULT_FILL    = "var(--bg-surface)";
-const DEFAULT_TEXT    = "var(--text-primary)";
-const MUTED_TEXT      = "var(--text-muted)";
-const STROKE_WIDTH    = 2;
+const INK                 = "var(--ink)";
+const PLACEHOLDER_TEXT    = "color-mix(in srgb, var(--ink-soft) 70%, transparent)";
+const STROKE_WIDTH        = 1.5;
+const STROKE_WIDTH_ACTIVE = 2.5;
+/** Hard offset shadow, never blurred. `--shadow-flat` is valid drop-shadow() syntax. */
+const SHAPE_SHADOW_FILTER = "drop-shadow(var(--shadow-flat))";
+export const DEFAULT_NODE_FONT_SIZE = 14;
+
+/** Default mono kicker above the label, describing what the shape usually stands for. */
+export const SHAPE_KICKERS: Record<CanvasNodeShape, string> = {
+  rectangle: "Service",
+  circle:    "Event",
+  diamond:   "Decision",
+  pill:      "Queue",
+  cylinder:  "Database",
+  hexagon:   "External",
+  text:      "Note",
+};
+
+// ---------------------------------------------------------------------------
+// Label block — mono kicker + Archivo label
+// ---------------------------------------------------------------------------
+
+interface NodeLabelProps {
+  kicker: string;
+  label: string;
+  bold: boolean;
+  italic: boolean;
+  fontSize: number;
+  showKicker: boolean;
+  align: "left" | "center";
+}
+
+function NodeLabel({ kicker, label, bold, italic, fontSize, showKicker, align }: NodeLabelProps) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: align === "left" ? "flex-start" : "center",
+        gap: 5,
+        maxWidth: "100%",
+        maxHeight: "100%",
+        overflow: "hidden",
+        textAlign: align,
+        position: "relative",
+        zIndex: 1,
+      }}
+    >
+      {showKicker && (
+        <span
+          style={{
+            fontFamily: "var(--font-brand-mono)",
+            fontSize: 10,
+            lineHeight: 1,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: "var(--ink-soft)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {kicker}
+        </span>
+      )}
+      <span
+        style={{
+          fontFamily: "var(--font-brand-primary)",
+          fontSize,
+          fontWeight: bold ? 800 : 600,
+          fontStyle: italic ? "italic" : "normal",
+          lineHeight: 1.25,
+          color: label ? INK : PLACEHOLDER_TEXT,
+          overflowWrap: "anywhere",
+          wordBreak: "break-word",
+        }}
+      >
+        {label || "Untitled"}
+      </span>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // SVG shape props
@@ -99,15 +169,9 @@ interface SvgShapeProps {
   width: number;
   height: number;
   selected: boolean;
-  label: string;
-  shape: CanvasShape;
   fillColor: string;
-  strokeColor: string;
-  nodeTextColor: string;
-  bold: boolean;
-  italic: boolean;
-  fontSize: number;
   isEditing: boolean;
+  labelProps: NodeLabelProps;
 }
 
 // ---------------------------------------------------------------------------
@@ -115,11 +179,9 @@ interface SvgShapeProps {
 // ---------------------------------------------------------------------------
 
 function SvgLabel({
-  width, height, label, nodeTextColor, bold, italic, fontSize, placeholder,
+  width, height, padding, labelProps,
 }: {
-  width: number; height: number; label: string;
-  nodeTextColor: string; bold: boolean; italic: boolean; fontSize: number;
-  placeholder: string;
+  width: number; height: number; padding: string; labelProps: NodeLabelProps;
 }) {
   return (
     <foreignObject x={0} y={0} width={width} height={height} style={{ pointerEvents: "none" }}>
@@ -130,83 +192,80 @@ function SvgLabel({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "6px 8px",
+          padding,
           boxSizing: "border-box",
-          textAlign: "center",
           overflow: "hidden",
-          lineHeight: 1.25,
-          fontSize,
-          fontFamily: "var(--font-sans)",
-          fontWeight: bold ? "bold" : "normal",
-          fontStyle: italic || !label ? "italic" : "normal",
-          color: label ? nodeTextColor : MUTED_TEXT,
-          overflowWrap: "anywhere",
-          wordBreak: "break-word",
         }}
       >
-        {label || placeholder}
+        <NodeLabel {...labelProps} />
       </div>
     </foreignObject>
   );
 }
 
+function shapePaintProps(p: SvgShapeProps) {
+  return {
+    fill: p.fillColor,
+    stroke: INK,
+    strokeWidth: p.selected ? STROKE_WIDTH_ACTIVE : STROKE_WIDTH,
+    strokeLinejoin: "round" as const,
+  };
+}
+
+const SVG_STYLE: React.CSSProperties = {
+  display: "block",
+  overflow: "visible",
+  transition: "stroke-width 0.15s ease",
+};
+
 function DiamondSvg(p: SvgShapeProps) {
-  const stroke = p.selected ? STROKE_SELECTED : p.strokeColor;
   const mid = { x: p.width / 2, y: p.height / 2 };
   const points = `${mid.x},0 ${p.width},${mid.y} ${mid.x},${p.height} 0,${mid.y}`;
   return (
-    <svg width={p.width} height={p.height} viewBox={`0 0 ${p.width} ${p.height}`}
-      style={{ display: "block", transition: "stroke 0.15s ease", overflow: "visible" }}
-    >
-      <polygon points={points} fill={p.fillColor} stroke={stroke} strokeWidth={STROKE_WIDTH} />
+    <svg width={p.width} height={p.height} viewBox={`0 0 ${p.width} ${p.height}`} style={SVG_STYLE}>
+      <polygon points={points} {...shapePaintProps(p)} style={{ filter: SHAPE_SHADOW_FILTER }} />
       {!p.isEditing && (
-        <SvgLabel width={p.width} height={p.height} label={p.label} nodeTextColor={p.nodeTextColor}
-          bold={p.bold} italic={p.italic} fontSize={p.fontSize} placeholder="diamond" />
+        <SvgLabel width={p.width} height={p.height} labelProps={p.labelProps}
+          padding={`${p.height * 0.2}px ${p.width * 0.22}px`} />
       )}
     </svg>
   );
 }
 
 function HexagonSvg(p: SvgShapeProps) {
-  const stroke = p.selected ? STROKE_SELECTED : p.strokeColor;
   const mid = { x: p.width / 2, y: p.height / 2 };
   const qx = p.width * 0.25, qx3 = p.width * 0.75;
   const points = `${qx},0 ${qx3},0 ${p.width},${mid.y} ${qx3},${p.height} ${qx},${p.height} 0,${mid.y}`;
   return (
-    <svg width={p.width} height={p.height} viewBox={`0 0 ${p.width} ${p.height}`}
-      style={{ display: "block", transition: "stroke 0.15s ease", overflow: "visible" }}
-    >
-      <polygon points={points} fill={p.fillColor} stroke={stroke} strokeWidth={STROKE_WIDTH} />
+    <svg width={p.width} height={p.height} viewBox={`0 0 ${p.width} ${p.height}`} style={SVG_STYLE}>
+      <polygon points={points} {...shapePaintProps(p)} style={{ filter: SHAPE_SHADOW_FILTER }} />
       {!p.isEditing && (
-        <SvgLabel width={p.width} height={p.height} label={p.label} nodeTextColor={p.nodeTextColor}
-          bold={p.bold} italic={p.italic} fontSize={p.fontSize} placeholder="hexagon" />
+        <SvgLabel width={p.width} height={p.height} labelProps={p.labelProps}
+          padding={`8px ${p.width * 0.16}px`} />
       )}
     </svg>
   );
 }
 
 function CylinderSvg(p: SvgShapeProps) {
-  const stroke = p.selected ? STROKE_SELECTED : p.strokeColor;
   const ry = Math.max(6, Math.min(16, p.height * 0.12));
   const topY = ry + 1;
   const bottomY = Math.max(topY + 8, p.height - ry - 1);
+  const paint = shapePaintProps(p);
   return (
-    <svg width={p.width} height={p.height} viewBox={`0 0 ${p.width} ${p.height}`}
-      style={{ display: "block", transition: "stroke 0.15s ease", overflow: "visible" }}
-    >
-      <rect
-        x={1}
-        y={topY}
-        width={p.width - 2}
-        height={Math.max(8, bottomY - topY)}
-        fill={p.fillColor} stroke={stroke} strokeWidth={STROKE_WIDTH} />
-      <ellipse cx={p.width / 2} cy={topY} rx={Math.max(2, p.width / 2 - 1)} ry={ry}
-        fill={p.fillColor} stroke={stroke} strokeWidth={STROKE_WIDTH} />
-      <ellipse cx={p.width / 2} cy={bottomY} rx={Math.max(2, p.width / 2 - 1)} ry={ry}
-        fill={p.fillColor} stroke={stroke} strokeWidth={STROKE_WIDTH} />
+    <svg width={p.width} height={p.height} viewBox={`0 0 ${p.width} ${p.height}`} style={SVG_STYLE}>
+      <g style={{ filter: SHAPE_SHADOW_FILTER }}>
+        {/* Body: bottom cap, then side walls, then the open top ellipse drawn over them */}
+        <ellipse cx={p.width / 2} cy={bottomY} rx={Math.max(2, p.width / 2 - 1)} ry={ry} {...paint} />
+        <rect x={1} y={topY} width={p.width - 2} height={Math.max(8, bottomY - topY)}
+          fill={p.fillColor} stroke="none" />
+        <line x1={1} y1={topY} x2={1} y2={bottomY} stroke={INK} strokeWidth={paint.strokeWidth} />
+        <line x1={p.width - 1} y1={topY} x2={p.width - 1} y2={bottomY} stroke={INK} strokeWidth={paint.strokeWidth} />
+        <ellipse cx={p.width / 2} cy={topY} rx={Math.max(2, p.width / 2 - 1)} ry={ry} {...paint} />
+      </g>
       {!p.isEditing && (
-        <SvgLabel width={p.width} height={p.height} label={p.label} nodeTextColor={p.nodeTextColor}
-          bold={p.bold} italic={p.italic} fontSize={p.fontSize} placeholder="cylinder" />
+        <SvgLabel width={p.width} height={p.height} labelProps={p.labelProps}
+          padding={`${ry * 2 + 2}px 10px ${ry}px`} />
       )}
     </svg>
   );
@@ -217,10 +276,9 @@ function CylinderSvg(p: SvgShapeProps) {
 // ---------------------------------------------------------------------------
 
 function getCssShapeStyle(
-  shape: CanvasShape | undefined,
+  shape: CanvasNodeShape,
   selected: boolean,
   fillColor: string,
-  strokeColor: string,
 ): React.CSSProperties {
   const base: React.CSSProperties = {
     width: "100%",
@@ -228,24 +286,123 @@ function getCssShapeStyle(
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    padding: "6px 12px",
     boxSizing: "border-box",
     background: fillColor,
-    border: `${STROKE_WIDTH}px solid ${selected ? STROKE_SELECTED : strokeColor}`,
-    transition: "border-color 0.15s ease, background 0.15s ease",
+    border: `${STROKE_WIDTH}px solid ${INK}`,
+    boxShadow: selected ? `0 0 0 1px ${INK}, var(--shadow-flat)` : "var(--shadow-flat)",
+    transition: "box-shadow 0.15s ease, background 0.15s ease",
     overflow: "hidden",
     position: "relative",
   };
   switch (shape) {
     case "circle":  return { ...base, borderRadius: "50%" };
-    case "pill":    return { ...base, borderRadius: 9999 };
+    case "pill":    return { ...base, borderRadius: 9999, padding: "6px 18px" };
     case "rectangle":
-    default:        return { ...base, borderRadius: 6 };
+    default:        return { ...base, borderRadius: 2, justifyContent: "flex-start", padding: "10px 16px" };
   }
 }
 
 // ---------------------------------------------------------------------------
 // Inline label editor overlay
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Free text node — no border or fill, sized by its content
+// ---------------------------------------------------------------------------
+
+const TEXT_NODE_MAX_WIDTH = 320;
+
+interface TextNodeBodyProps {
+  data: CanvasNodeData;
+  selected: boolean;
+  isEditing: boolean;
+  editValue: string;
+  onChange: (v: string) => void;
+  onClose: () => void;
+}
+
+function TextNodeBody({ data, selected, isEditing, editValue, onChange, onClose }: TextNodeBodyProps) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!isEditing) return;
+    const el = ref.current;
+    if (!el) return;
+    el.focus();
+    el.select();
+  }, [isEditing]);
+
+  const text = isEditing ? editValue : data.label;
+
+  const typography: React.CSSProperties = {
+    fontFamily: "var(--font-brand-primary)",
+    fontSize: data.fontSize ?? DEFAULT_NODE_FONT_SIZE,
+    fontWeight: data.bold ? 700 : 400,
+    fontStyle: data.italic ? "italic" : "normal",
+    lineHeight: 1.5,
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+  };
+
+  return (
+    // The textarea and an invisible copy of its text share one grid cell, so the copy sets the size.
+    <div
+      style={{
+        display: "inline-grid",
+        minWidth: 48,
+        maxWidth: TEXT_NODE_MAX_WIDTH,
+        padding: "4px 6px",
+        borderRadius: 2,
+        outline: selected || isEditing ? `1px dashed ${INK}` : "none",
+        outlineOffset: 2,
+      }}
+    >
+      <span
+        aria-hidden={isEditing || undefined}
+        style={{
+          ...typography,
+          gridArea: "1 / 1",
+          visibility: isEditing ? "hidden" : "visible",
+          color: text ? INK : PLACEHOLDER_TEXT,
+        }}
+      >
+        {/* A trailing space keeps a final empty line measurable while typing. */}
+        {text ? (isEditing ? `${text} ` : text) : "Add text"}
+      </span>
+      {isEditing && (
+        <textarea
+          ref={ref}
+          className="nodrag nopan"
+          aria-label="Text"
+          value={editValue}
+          rows={1}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onClose}
+          onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Escape") onClose(); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            ...typography,
+            gridArea: "1 / 1",
+            width: "100%",
+            height: "100%",
+            margin: 0,
+            padding: 0,
+            resize: "none",
+            overflow: "hidden",
+            background: "transparent",
+            border: "none",
+            outline: "none",
+            color: INK,
+            caretColor: INK,
+          }}
+        />
+      )}
+    </div>
+  );
+}
 
 interface LabelEditorProps {
   value: string;
@@ -284,13 +441,13 @@ function LabelEditor({ value, data, onChange, onClose }: LabelEditorProps) {
         rows={2}
         style={{
           width: "80%", resize: "none", textAlign: "center",
-          fontSize: data.fontSize ?? 12,
-          fontFamily: "var(--font-sans)",
-          fontWeight: data.bold ? "bold" : "normal",
+          fontSize: data.fontSize ?? DEFAULT_NODE_FONT_SIZE,
+          fontFamily: "var(--font-brand-primary)",
+          fontWeight: data.bold ? 800 : 600,
           fontStyle: data.italic ? "italic" : "normal",
-          color: data.textColor ?? DEFAULT_TEXT,
+          color: INK,
           background: "transparent", border: "none", outline: "none",
-          caretColor: "var(--accent-primary)",
+          caretColor: INK,
           lineHeight: 1.4, padding: 0, overflowY: "hidden",
         }}
       />
@@ -302,7 +459,7 @@ function LabelEditor({ value, data, onChange, onClose }: LabelEditorProps) {
 // Custom node component
 // ---------------------------------------------------------------------------
 
-const SVG_SHAPES = new Set<CanvasShape>(["diamond", "hexagon", "cylinder"]);
+const SVG_SHAPES = new Set<CanvasNodeShape>(["diamond", "hexagon", "cylinder"]);
 
 export const CanvasNodeComponent = memo(function CanvasNodeComponent({
   data,
@@ -316,28 +473,26 @@ export const CanvasNodeComponent = memo(function CanvasNodeComponent({
   const [editValue, setEditValue] = useState("");
   const { setNodes } = useReactFlow();
 
-  const shape = data.shape;
+  const shape = data.shape ?? "rectangle";
   const width = typeof nodeWidth === "number" ? nodeWidth : 120;
   const height = typeof nodeHeight === "number" ? nodeHeight : 60;
 
-  // Derived color values
-  const fillColor      = data.color       ?? DEFAULT_FILL;
-  const nodeTextColor  = data.textColor   ?? DEFAULT_TEXT;
-  const strokeColor    = data.strokeColor ?? STROKE_REST;
-  const bold           = !!data.bold;
-  const italic         = !!data.italic;
-  const fontSize       = data.fontSize    ?? 12;
+  // Stroke and text are always ink; only the fill varies (legacy dark colors map to an accent).
+  const fillColor = resolveNodeFill(data.color).value;
 
-  // const handleDataUpdate = useCallback(
-  //   (update: NodeDataUpdate) => {
-  //     setNodes((nds) =>
-  //       nds.map((n) =>
-  //         n.id === id ? { ...n, data: { ...n.data, ...update } } : n,
-  //       ),
-  //     );
-  //   },
-  //   [id, setNodes],
-  // );
+  const showKicker =
+    shape === "diamond" ? width >= 120 && height >= 100 : width >= 88 && height >= 52;
+
+  const labelProps: NodeLabelProps = {
+    kicker: data.kicker?.trim() || SHAPE_KICKERS[shape],
+    label: data.label,
+    bold: !!data.bold,
+    italic: !!data.italic,
+    fontSize: data.fontSize ?? DEFAULT_NODE_FONT_SIZE,
+    showKicker,
+    align: shape === "rectangle" ? "left" : "center",
+  };
+
   // ── Label editing ────────────────────────────────────────────────────────
   const enterEditing = useCallback(() => {
     setEditValue(data.label ?? "");
@@ -358,13 +513,31 @@ export const CanvasNodeComponent = memo(function CanvasNodeComponent({
 
   const closeEditing = useCallback(() => setIsEditing(false), []);
 
-  const isSvgShape = shape !== undefined && SVG_SHAPES.has(shape);
+  if (shape === TEXT_NODE_SHAPE) {
+    return (
+      <div
+        style={{ position: "relative" }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onDoubleClick={(e) => { e.stopPropagation(); enterEditing(); }}
+      >
+        {/* Notes are free annotations: no connection handles. */}
+        <TextNodeBody
+          data={data}
+          selected={!!selected}
+          isEditing={isEditing}
+          editValue={editValue}
+          onChange={handleLabelChange}
+          onClose={closeEditing}
+        />
+      </div>
+    );
+  }
+
+  const isSvgShape = SVG_SHAPES.has(shape);
 
   const svgProps: SvgShapeProps = {
-    width, height, selected: !!selected,
-    label: data.label, shape: shape ?? "rectangle",
-    fillColor, strokeColor, nodeTextColor,
-    bold, italic, fontSize, isEditing,
+    width, height, selected: !!selected, fillColor, isEditing, labelProps,
   };
 
   return (
@@ -379,8 +552,8 @@ export const CanvasNodeComponent = memo(function CanvasNodeComponent({
         minHeight={40}
         isVisible={!isEditing && !!selected}
         keepAspectRatio={shape === "circle" || shape === "pill"}
-        lineStyle={{ border: "1px solid var(--accent-primary)" }}
-        handleStyle={{ width: 8, height: 8, background: "var(--accent-primary)", border: "none", borderRadius: 2 }}
+        lineStyle={{ borderColor: INK, borderStyle: "dashed", borderWidth: 1 }}
+        handleStyle={{ width: 8, height: 8, background: "var(--paper-bright)", border: `1px solid ${INK}`, borderRadius: 0 }}
       />
 
       <NodeHandles nodeId={id} isHovered={isHovered} />
@@ -392,29 +565,8 @@ export const CanvasNodeComponent = memo(function CanvasNodeComponent({
           {shape === "cylinder" && <CylinderSvg {...svgProps} />}
         </div>
       ) : (
-        <div style={getCssShapeStyle(shape, !!selected, fillColor, strokeColor)}>
-          {!isEditing && (
-            <span style={{
-              fontSize,
-              fontFamily: "var(--font-sans)",
-              fontWeight: bold ? "bold" : "normal",
-              fontStyle: (italic || !data.label) ? "italic" : "normal",
-              color: data.label ? nodeTextColor : MUTED_TEXT,
-              textAlign: "center",
-              lineHeight: 1.25,
-              overflow: "hidden",
-              maxWidth: "84%",
-              maxHeight: "78%",
-              display: "block",
-              whiteSpace: "normal",
-              overflowWrap: "anywhere",
-              wordBreak: "break-word",
-              position: "relative",
-              zIndex: 1,
-            }}>
-              {data.label || (shape ?? "node")}
-            </span>
-          )}
+        <div style={getCssShapeStyle(shape, !!selected, fillColor)}>
+          {!isEditing && <NodeLabel {...labelProps} />}
         </div>
       )}
 

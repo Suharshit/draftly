@@ -30,7 +30,7 @@ import { StarterTemplatesModal } from "@/components/editor/starter-templates-mod
 import { CANVAS_TEMPLATES, type CanvasTemplate } from "@/components/editor/starter-templates";
 import { useCanvasAutosave, type CanvasSaveStatus } from "@/hooks/use-canvas-autosave";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
-import { CANVAS_NODE_TYPE, CANVAS_EDGE_TYPE } from "@/types/canvas";
+import { CANVAS_NODE_TYPE, CANVAS_EDGE_TYPE, TEXT_NODE_SHAPE } from "@/types/canvas";
 import type { CanvasEdge, CanvasNode } from "@/types/canvas";
 
 // ---------------------------------------------------------------------------
@@ -229,15 +229,13 @@ function CanvasFlowInner({
           x: position.x - payload.width / 2,
           y: position.y - payload.height / 2,
         },
-        style: {
-          width: payload.width,
-          height: payload.height,
-        },
+        // Text nodes get no fixed size, so React Flow measures them as their text grows.
+        ...(payload.shape === TEXT_NODE_SHAPE
+          ? {}
+          : { style: { width: payload.width, height: payload.height } }),
         data: {
           label: "",
           color: undefined,
-          textColor: "var(--text-primary)",
-          strokeColor: "var(--text-primary)",
           shape: payload.shape,
         },
       };
@@ -332,6 +330,7 @@ function CanvasFlowInner({
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
+        fitViewOptions={{ minZoom: 1, maxZoom: 1 }}
         connectionMode={ConnectionMode.Loose}
         connectionLineType={ConnectionLineType.SmoothStep}
         defaultEdgeOptions={{ type: CANVAS_EDGE_TYPE, data: { arrowDirection: "none", edgeStyle: "solid" } }}

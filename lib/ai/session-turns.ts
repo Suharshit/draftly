@@ -1,23 +1,24 @@
 import { ApiError, runs, tasks } from "@trigger.dev/sdk/v3";
-import { z } from "zod";
 
 import type { Prisma } from "@/app/generated/prisma/client";
 import {
   AGENT_HISTORY_LIMIT,
-  clarifyQuestionSchema,
   designAgentResultSchema,
   designBriefSchema,
-  designPlanSchema,
   formatAnswersText,
   formatPlanText,
   formatQuestionsText,
+  GENERATE_TURN_TEXT,
+  readPlanPayload,
+  readQuestionsPayload,
+  SKIP_TURN_TEXT,
   type AgentHistoryEntry,
-  type ClarifyAnswer,
   type ClarifyQuestion,
   type DesignAgentPayload,
   type DesignAgentResult,
   type DesignBrief,
   type DesignPlan,
+  type TurnInput,
   type TurnIntent,
 } from "@/lib/ai/agent-schema";
 import {
@@ -75,26 +76,16 @@ function latestAssistantMessage(session: AiSessionDetail): AiMessageDto | undefi
   return session.messages.findLast((message) => message.role === "ASSISTANT" && message.status === "COMPLETE");
 }
 
-function readPayloadField(message: AiMessageDto | undefined, field: string): unknown {
-  const payload = message?.payload;
-  return typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>)[field] : undefined;
-}
-
 /** The most recent plan proposed in the session, if any. */
 function latestPlan(session: AiSessionDetail): DesignPlan | null {
   const message = session.messages.findLast((entry) => entry.kind === "PLAN" && entry.status === "COMPLETE");
-  const parsed = designPlanSchema.safeParse(readPayloadField(message, "plan"));
-  return parsed.success ? parsed.data : null;
+  return message ? readPlanPayload(message.payload) : null;
 }
 
 /** Questions still awaiting answers: only while they are the latest reply. */
 function openQuestions(session: AiSessionDetail): ClarifyQuestion[] {
   const message = latestAssistantMessage(session);
-  if (message?.kind !== "QUESTIONS") {
-    return [];
-  }
-  const parsed = z.array(clarifyQuestionSchema).safeParse(readPayloadField(message, "questions"));
-  return parsed.success ? parsed.data : [];
+  return message?.kind === "QUESTIONS" ? (readQuestionsPayload(message.payload) ?? []) : [];
 }
 
 function storedBrief(session: AiSessionDetail): DesignBrief | null {
@@ -161,7 +152,7 @@ function outcomeFromResult(result: DesignAgentResult): TurnOutcome {
         kind: "QUESTIONS",
         status: "COMPLETE",
         content: formatQuestionsText(result.reply, result.questions),
-        payload: { questions: result.questions },
+        payload: { reply: result.reply, questions: result.questions },
         phase: "CLARIFYING",
         brief: result.brief,
         countsClarifyRound: true,
@@ -171,7 +162,7 @@ function outcomeFromResult(result: DesignAgentResult): TurnOutcome {
         kind: "PLAN",
         status: "COMPLETE",
         content: formatPlanText(result.reply, result.plan),
-        payload: { plan: result.plan },
+        payload: { reply: result.reply, plan: result.plan },
         phase: "PLANNED",
         brief: result.brief,
       };
@@ -284,11 +275,7 @@ export async function getSettledSession(scope: SessionScope, sessionId: string):
 // Starting a turn
 // ---------------------------------------------------------------------------
 
-export type TurnInput =
-  | { type: "message"; text: string }
-  | { type: "answers"; answers: ClarifyAnswer[] }
-  | { type: "generate" }
-  | { type: "skip" };
+export type { TurnInput };
 
 interface ResolvedTurn {
   intent: TurnIntent;
@@ -331,12 +318,12 @@ function resolveTurn(session: AiSessionDetail, input: TurnInput): ResolveTurnRes
       if (!latestPlan(session)) {
         return { ok: false, status: 409, error: "There is no plan to generate yet" };
       }
-      return { ok: true, turn: { intent: "generate", content: "Generate this plan.", kind: "TEXT" } };
+      return { ok: true, turn: { intent: "generate", content: GENERATE_TURN_TEXT, kind: "TEXT" } };
 
     case "skip":
       return {
         ok: true,
-        turn: { intent: "skip", content: "Skip the questions and plan with sensible assumptions.", kind: "TEXT" },
+        turn: { intent: "skip", content: SKIP_TURN_TEXT, kind: "TEXT" },
       };
   }
 }

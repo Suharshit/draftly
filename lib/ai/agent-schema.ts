@@ -240,6 +240,68 @@ export interface DesignAgentPayload {
   clarifyRounds: number;
 }
 
+/** A user turn as sent to the turns route. */
+export type TurnInput =
+  | { type: "message"; text: string }
+  | { type: "answers"; answers: ClarifyAnswer[] }
+  | { type: "generate" }
+  | { type: "skip" };
+
+/** Stored and shown as the user's message for turns that carry no typed text. */
+export const GENERATE_TURN_TEXT = "Generate this plan.";
+export const SKIP_TURN_TEXT = "Skip the questions and plan with sensible assumptions.";
+
+// ---------------------------------------------------------------------------
+// Stored payload readers
+//
+// Message payloads come back from the database as unknown JSON; these narrow
+// them for both the server (building the next turn) and the sidebar (cards).
+// ---------------------------------------------------------------------------
+
+function payloadField(payload: unknown, field: string): unknown {
+  return typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>)[field] : undefined;
+}
+
+const clarifyAnswerSchema = z.object({ questionId: z.string(), answer: z.string() });
+
+const resultPayloadSchema = z.object({
+  nodeCount: z.number(),
+  edgeCount: z.number(),
+  decisions: z.array(planDecisionSchema).optional(),
+});
+
+export interface DesignResultSummary {
+  nodeCount: number;
+  edgeCount: number;
+  decisions: PlanDecision[];
+}
+
+/** The agent's short reply stored with questions and plans; empty for older messages. */
+export function readReplyPayload(payload: unknown): string {
+  const reply = payloadField(payload, "reply");
+  return typeof reply === "string" ? reply : "";
+}
+
+export function readQuestionsPayload(payload: unknown): ClarifyQuestion[] | null {
+  const parsed = z.array(clarifyQuestionSchema).safeParse(payloadField(payload, "questions"));
+  return parsed.success ? parsed.data : null;
+}
+
+export function readAnswersPayload(payload: unknown): ClarifyAnswer[] | null {
+  const parsed = z.array(clarifyAnswerSchema).safeParse(payloadField(payload, "answers"));
+  return parsed.success ? parsed.data : null;
+}
+
+export function readPlanPayload(payload: unknown): DesignPlan | null {
+  const parsed = designPlanSchema.safeParse(payloadField(payload, "plan"));
+  return parsed.success ? parsed.data : null;
+}
+
+export function readResultPayload(payload: unknown): DesignResultSummary | null {
+  const parsed = resultPayloadSchema.safeParse(payload);
+  return parsed.success ? { ...parsed.data, decisions: parsed.data.decisions ?? [] } : null;
+}
+
 // ---------------------------------------------------------------------------
 // Text renderings
 //

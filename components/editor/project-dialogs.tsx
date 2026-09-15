@@ -1,5 +1,7 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
+
 import {
   PaperDialog,
   paperDestructiveButtonClass,
@@ -20,6 +22,20 @@ interface ProjectDialogsProps {
   onCreate: () => Promise<void>;
   onRename: () => Promise<void>;
   onDelete: () => Promise<void>;
+}
+
+/** Button label that swaps to a spinner and progress text while the action runs. */
+function ActionLabel({ isLoading, idle, busy }: { isLoading: boolean; idle: string; busy: string }) {
+  if (!isLoading) {
+    return idle;
+  }
+
+  return (
+    <>
+      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+      {busy}
+    </>
+  );
 }
 
 export function ProjectDialogs({
@@ -50,8 +66,14 @@ export function ProjectDialogs({
             <button type="button" className={paperSecondaryButtonClass} onClick={onClose} disabled={isLoading}>
               Cancel
             </button>
-            <button type="submit" form="create-project-form" className={paperPrimaryButtonClass} disabled={isLoading}>
-              Create project
+            <button
+              type="submit"
+              form="create-project-form"
+              className={paperPrimaryButtonClass}
+              disabled={isLoading}
+              aria-busy={isLoading}
+            >
+              <ActionLabel isLoading={isLoading} idle="Create project" busy="Creating…" />
             </button>
           </>
         }
@@ -73,6 +95,7 @@ export function ProjectDialogs({
             onChange={(event) => onProjectNameChange(event.target.value)}
             placeholder="e.g. Payment Gateway Modernization"
             className={paperInputClass}
+            disabled={isLoading}
             autoFocus
           />
           <p className="flex flex-wrap items-baseline gap-x-2.5 font-mono text-xs">
@@ -99,8 +122,9 @@ export function ProjectDialogs({
               form="rename-project-form"
               className={paperPrimaryButtonClass}
               disabled={isLoading || projectName.trim().length === 0}
+              aria-busy={isLoading}
             >
-              Save
+              <ActionLabel isLoading={isLoading} idle="Save" busy="Saving…" />
             </button>
           </>
         }
@@ -121,6 +145,7 @@ export function ProjectDialogs({
             value={projectName}
             onChange={(event) => onProjectNameChange(event.target.value)}
             className={paperInputClass}
+            disabled={isLoading}
             autoFocus
           />
         </form>
@@ -145,8 +170,9 @@ export function ProjectDialogs({
               className={paperDestructiveButtonClass}
               onClick={() => void onDelete()}
               disabled={isLoading}
+              aria-busy={isLoading}
             >
-              Delete project
+              <ActionLabel isLoading={isLoading} idle="Delete project" busy="Deleting…" />
             </button>
           </>
         }

@@ -1147,3 +1147,16 @@ Update this file whenever the current phase, active feature, or implementation s
     - Type check and lint pass. A tsx script over all 13 templates confirmed: every edge has handles, no node side
       holds two edges, max 4 edges per node, no overlapping nodes. It also covered `canConnect` cases and AI graph
       handles. Not checked in a browser.
+- Loading states for canvas connect and project actions (2026-09-15):
+    - `canvas-wrapper.tsx`: the `ClientSideSuspense` fallback is now `DraftlyLoader` (caption "Connecting to canvas",
+      `fixed inset-0 z-45`) instead of plain text. It covers the whole editor, navbar and AI sidebar included
+      (they render outside the Suspense boundary); z-45 is above the sidebars (z-20/z-40), below dialogs (z-50).
+      The connection error message is unchanged.
+    - `hooks/use-project-actions.ts`: `isLoading` = request in flight OR router transition pending. The
+      `router.push` / `router.refresh` after a successful create, rename or delete runs in `useTransition`
+      with `setActiveDialog(null)`, so the dialog stays open and busy until the new page / refreshed names
+      render. `closeDialog` and the submit handlers ignore calls while loading (no dismiss mid-action, no
+      double submit). Failed requests still leave the dialog open with no error message (unchanged).
+    - `project-dialogs.tsx`: primary buttons show a `Loader2` spinner with "Creating…", "Saving…",
+      "Deleting…" and `aria-busy`; name inputs are disabled while loading.
+    - Type check and lint pass. Not checked in a browser.

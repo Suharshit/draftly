@@ -4,6 +4,7 @@ import { Component, type ReactNode } from "react";
 import { LiveblocksProvider, RoomProvider, ClientSideSuspense } from "@liveblocks/react/suspense";
 
 import { CanvasFlow } from "@/components/editor/canvas-flow";
+import { DraftlyLoader } from "@/components/ui/marketing/draftly-loader";
 import type { CanvasSaveStatus } from "@/hooks/use-canvas-autosave";
 
 // ---------------------------------------------------------------------------
@@ -85,9 +86,9 @@ export function CanvasWrapper({
         <CanvasErrorBoundary>
           <ClientSideSuspense
             fallback={
-              <div className="flex h-full w-full items-center justify-center">
-                <p className="font-brand text-sm text-ink-soft">Connecting to canvas…</p>
-              </div>
+              // Fixed over the whole editor: the navbar and AI sidebar render outside this boundary.
+              // z-45 sits above the sidebars (z-20/z-40) and below dialogs (z-50).
+              <DraftlyLoader caption="Connecting to canvas" className="fixed inset-0 z-45" />
             }
           >
             <CanvasFlow

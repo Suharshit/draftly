@@ -26,7 +26,7 @@ barrel: `MarketingNavbar`, `MarketingButton`, `HandwrittenNote`,
 `SkillPill`, `DraftlyWordmark` (the two-face text lockup), `MatGrid` (the cutting-mat
 grid overlay), `DraftlyLoader` (the brand loading screen: swinging amber sticky note on
 notebook paper with a rotating Caveat status word; `tone` craft/plain, `pace`, `caption`, `fullScreen`;
-intended for waits like dashboard → editor and connecting to the canvas, not yet wired in). The auth layout sits on the mat with the wordmark and mini-canvas. Sign-in
+used as the canvas connecting fallback in `CanvasWrapper`; also intended for dashboard → editor waits). The auth layout sits on the mat with the wordmark and mini-canvas. Sign-in
 and sign-up are custom paper cards (`components/auth/sign-in-card.tsx`, `sign-up-card.tsx`)
 built on Clerk's `useSignIn()` / `useSignUp()` hooks, not the prebuilt `<SignIn />` /
 `<SignUp />`. Both share the card shell, SSO buttons, fields and CTA from

@@ -1,8 +1,14 @@
 import { mutateFlow } from "@liveblocks/react-flow/node";
-import { logger, metadata, task } from "@trigger.dev/sdk/v3";
+import { AbortTaskRunError, logger, metadata, task } from "@trigger.dev/sdk/v3";
 import type { LanguageModel } from "ai";
 
-import type { DesignAgentPayload, DesignAgentResult, DesignBrief, DesignPlan } from "@/lib/ai/agent-schema";
+import {
+  PLAN_NOTHING_TO_ADD_MESSAGE,
+  type DesignAgentPayload,
+  type DesignAgentResult,
+  type DesignBrief,
+  type DesignPlan,
+} from "@/lib/ai/agent-schema";
 import { summarizeCanvas, type CanvasSummary } from "@/lib/ai/canvas-summary";
 import {
   analyzeTurn,
@@ -164,6 +170,9 @@ export const designAgentTask = task({
 
     setStage("planning");
     const plan = await draftPlan(model, analysis.brief, payload.plan, payload.input, canvas);
+    if (!plan) {
+      throw new AbortTaskRunError(PLAN_NOTHING_TO_ADD_MESSAGE);
+    }
     logger.log("Plan drafted", { components: plan.components.length, decisions: plan.decisions.length });
 
     setStage("done");

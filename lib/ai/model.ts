@@ -48,7 +48,24 @@ export async function withSchemaRetry<T>(call: () => Promise<T>): Promise<T> {
     if (!NoObjectGeneratedError.isInstance(error)) {
       throw error;
     }
-    console.warn("[ai] model output did not match the schema; retrying once", error.cause);
-    return call();
+    console.warn("[ai] model output did not match the schema; retrying once", describeSchemaMismatch(error));
+    try {
+      return await call();
+    } catch (retryError) {
+      if (NoObjectGeneratedError.isInstance(retryError)) {
+        console.error("[ai] model output did not match the schema again", describeSchemaMismatch(retryError));
+      }
+      throw retryError;
+    }
   }
+}
+
+/** What failed and how, without logging the whole (possibly long) response. */
+function describeSchemaMismatch(error: NoObjectGeneratedError) {
+  return {
+    finishReason: error.finishReason,
+    cause: error.cause instanceof Error ? error.cause.message : error.cause,
+    responseChars: error.text?.length ?? 0,
+    responseStart: error.text?.slice(0, 500),
+  };
 }

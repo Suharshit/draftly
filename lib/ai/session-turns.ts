@@ -9,6 +9,7 @@ import {
   formatPlanText,
   formatQuestionsText,
   GENERATE_TURN_TEXT,
+  PLAN_NOTHING_TO_ADD_MESSAGE,
   readPlanPayload,
   readQuestionsPayload,
   SKIP_TURN_TEXT,
@@ -130,6 +131,7 @@ function describeFailedRun(runId: string, message: string | undefined): string {
   return describeRunFailure(message, {
     generic: GENERIC_RUN_ERROR,
     timeout: "The design agent took too long to respond. Try again.",
+    passthrough: [PLAN_NOTHING_TO_ADD_MESSAGE],
   });
 }
 

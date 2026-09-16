@@ -5,8 +5,9 @@ import {
   clampPlan,
   clampQuestions,
   designBriefSchema,
-  designPlanSchema,
+  designPlanDraftSchema,
   MAX_CLARIFY_ROUNDS,
+  sanitizePlanDraft,
   turnAnalysisSchema,
   type DesignAgentPayload,
   type DesignBrief,
@@ -145,19 +146,20 @@ export async function draftPlan(
   previousPlan: DesignPlan | null,
   latestInput: string,
   canvas: CanvasSummary | null = null,
-): Promise<DesignPlan> {
+): Promise<DesignPlan | null> {
   const { output } = await withSchemaRetry(() =>
     generateText({
       model,
       system: PLAN_SYSTEM_PROMPT,
       prompt: buildPlanPrompt(brief, previousPlan, latestInput, formatCanvasSummary(canvas)),
-      output: Output.object({ schema: designPlanSchema, name: "design_plan" }),
+      output: Output.object({ schema: designPlanDraftSchema, name: "design_plan" }),
       providerOptions: thinking(model, "medium"),
       timeout: { totalMs: CALL_TIMEOUT_MS.plan },
     }),
   );
 
-  return removeCanvasRefs(clampPlan(output));
+  const plan = sanitizePlanDraft(output);
+  return plan ? removeCanvasRefs(clampPlan(plan)) : null;
 }
 
 export interface GeneratedDesign {

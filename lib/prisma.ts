@@ -15,7 +15,7 @@ function createPrismaClient() {
     throw new Error("DATABASE_URL is not set.");
   }
 
-  if (databaseUrl.startsWith("prism+postgres://")) {
+  if (databaseUrl.startsWith("prisma+postgres://")) {
     return new PrismaClient({
       accelerateUrl: databaseUrl,
     }).$extends(withAccelerate()) as unknown as PrismaClient;

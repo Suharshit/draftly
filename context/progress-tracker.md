@@ -1560,3 +1560,20 @@ Update this file whenever the current phase, active feature, or implementation s
 - `lib/prisma.ts` Accelerate URL check fixed (`prisma+postgres://`).
 - Validation: `pnpm typecheck` and eslint on changed files passed; sanitizer checked on empty and partial drafts.
   Not yet verified: an "add components" AI turn in production after the Trigger.dev deploy.
+
+### AI agent: text replies and unsupported edits (2026-09-16)
+
+- Problem seen in production: "simplify the graph" and "what is my name?" both ended as a red error ("The plan didn't
+  include any new components…"), because the analyze step could only ask, plan, or generate and the agent is add-only.
+- `TURN_DECISIONS` gains `reply` (questions about the diagram or plan, greetings, off-topic) and `unsupported`
+  (remove / merge / rename / move / restyle / simplify existing components, even mixed with additions).
+  `enforceDecision` turns both into `plan` for `answers` and `skip` turns.
+- New `reply` result action: the answer (or `UNSUPPORTED_EDIT_MESSAGE`, written in code) is stored as a `TEXT`
+  message with no phase or brief change, so a proposed plan stays generatable. A plan with nothing to add now returns
+  a `reply` instead of aborting, so it no longer shows as an error; the passthrough stays for runs on older task
+  versions. These turns make no extra model call.
+- Validation: `pnpm typecheck` and eslint passed; decision rules checked offline; live analyze on
+  `gemini-3.5-flash-lite` with a 10-component CI/CD canvas classified all five test messages as expected
+  (simplify → unsupported, name → reply, "why a separate CD Deployer" → reply, add Slack notifier → plan,
+  remove + add → unsupported).
+- Still to do: editing existing components (a separate feature) and layout quality.

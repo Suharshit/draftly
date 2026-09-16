@@ -80,7 +80,11 @@ export const clarifyQuestionSchema = z.object({
 
 export type ClarifyQuestion = z.infer<typeof clarifyQuestionSchema>;
 
-export const TURN_DECISIONS = ["ask", "plan", "generate"] as const;
+/**
+ * - `reply`: a question or remark that needs no design change; answered in text
+ * - `unsupported`: an edit the agent cannot make yet (remove, merge, rename, rearrange)
+ */
+export const TURN_DECISIONS = ["ask", "plan", "generate", "reply", "unsupported"] as const;
 
 export type TurnDecision = (typeof TURN_DECISIONS)[number];
 
@@ -91,11 +95,16 @@ export const turnAnalysisSchema = z.object({
     .enum(TURN_DECISIONS)
     .describe(
       "'ask' to gather missing requirements, 'plan' to propose or revise a plan, " +
-        "'generate' only when a plan exists and the user approved it.",
+        "'generate' only when a plan exists and the user approved it, " +
+        "'reply' to answer a question or remark that needs no design change, " +
+        "'unsupported' when the user wants existing components removed, merged, renamed, or rearranged.",
     ),
   reply: z
     .string()
-    .describe("One or two plain sentences to the user. No markdown, and do not restate the questions."),
+    .describe(
+      "Plain text to the user, no markdown. One or two sentences, and do not restate the questions; " +
+        "for 'reply', the full answer in at most four sentences.",
+    ),
   questions: z
     .array(clarifyQuestionSchema)
     .describe(
@@ -171,6 +180,15 @@ export type DesignPlanDraft = z.infer<typeof designPlanDraftSchema>;
 export const PLAN_NOTHING_TO_ADD_MESSAGE =
   "The plan didn't include any new components to add. Say which components you want added or changed.";
 
+/** Shown for edits the agent cannot make yet; written in code so it never promises more than it can do. */
+export const UNSUPPORTED_EDIT_MESSAGE =
+  "I can add new components and connections to this diagram, but I can't remove, merge, rename, or rearrange " +
+  "existing ones yet. You can make those edits directly on the canvas, or tell me what to add.";
+
+/** Stands in for an empty answer to a `reply` turn. */
+export const REPLY_FALLBACK_MESSAGE =
+  "I'm here to help design this system. Tell me what you'd like to add, or ask about the diagram.";
+
 /** Output of one design-agent run. The server validates it before storing it. */
 export const designAgentResultSchema = z.discriminatedUnion("action", [
   z.object({
@@ -192,6 +210,11 @@ export const designAgentResultSchema = z.discriminatedUnion("action", [
     edgeCount: z.number().int().nonnegative(),
     decisions: z.array(planDecisionSchema),
     brief: designBriefSchema,
+  }),
+  // A text answer: no plan, no canvas change, and the session's brief and phase stay as they were.
+  z.object({
+    action: z.literal("reply"),
+    reply: z.string().min(1),
   }),
 ]);
 

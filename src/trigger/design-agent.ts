@@ -1,9 +1,11 @@
 import { mutateFlow } from "@liveblocks/react-flow/node";
-import { AbortTaskRunError, logger, metadata, task } from "@trigger.dev/sdk/v3";
+import { logger, metadata, task } from "@trigger.dev/sdk/v3";
 import type { LanguageModel } from "ai";
 
 import {
   PLAN_NOTHING_TO_ADD_MESSAGE,
+  REPLY_FALLBACK_MESSAGE,
+  UNSUPPORTED_EDIT_MESSAGE,
   type DesignAgentPayload,
   type DesignAgentResult,
   type DesignBrief,
@@ -156,6 +158,17 @@ export const designAgentTask = task({
       return { action: "ask", reply: analysis.reply, questions: analysis.questions, brief: analysis.brief };
     }
 
+    // Text-only turns end here: no plan call and no canvas change.
+    if (analysis.decision === "reply") {
+      setStage("done");
+      return { action: "reply", reply: analysis.reply.trim() || REPLY_FALLBACK_MESSAGE };
+    }
+
+    if (analysis.decision === "unsupported") {
+      setStage("done");
+      return { action: "reply", reply: UNSUPPORTED_EDIT_MESSAGE };
+    }
+
     if (analysis.decision === "generate" && payload.plan) {
       const counts = await drawPlan(model, payload.roomId, ctx.run.id, analysis.brief, payload.plan, canvas);
       setStage("done");
@@ -170,12 +183,14 @@ export const designAgentTask = task({
 
     setStage("planning");
     const plan = await draftPlan(model, analysis.brief, payload.plan, payload.input, canvas);
+    setStage("done");
     if (!plan) {
-      throw new AbortTaskRunError(PLAN_NOTHING_TO_ADD_MESSAGE);
+      // Not a failure: the request just needed nothing new. Answered in text, like a reply turn.
+      logger.log("Plan drafted with no components to add");
+      return { action: "reply", reply: PLAN_NOTHING_TO_ADD_MESSAGE };
     }
     logger.log("Plan drafted", { components: plan.components.length, decisions: plan.decisions.length });
 
-    setStage("done");
     return { action: "plan", reply: analysis.reply, plan, brief: analysis.brief };
   },
 });

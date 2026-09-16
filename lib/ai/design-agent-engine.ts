@@ -62,10 +62,15 @@ function toMessages(payload: DesignAgentPayload): ModelMessage[] {
 /**
  * Applies the rules the model is asked to follow but cannot be trusted to:
  * no questions past the round limit or after a skip, no generating without a
- * plan, no "ask" without questions.
+ * plan, no "ask" without questions, and no text-only answer to a turn that
+ * answers questions or skips them.
  */
 export function enforceDecision(analysis: TurnAnalysis, payload: DesignAgentPayload): TurnAnalysis {
   let { decision } = analysis;
+
+  if ((decision === "reply" || decision === "unsupported") && payload.intent !== "message") {
+    decision = "plan";
+  }
 
   if (decision === "ask") {
     const mayAsk =

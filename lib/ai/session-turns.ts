@@ -131,6 +131,7 @@ function describeFailedRun(runId: string, message: string | undefined): string {
   return describeRunFailure(message, {
     generic: GENERIC_RUN_ERROR,
     timeout: "The design agent took too long to respond. Try again.",
+    // Runs on task versions before the `reply` action aborted with this message.
     passthrough: [PLAN_NOTHING_TO_ADD_MESSAGE],
   });
 }
@@ -164,6 +165,14 @@ function outcomeFromResult(result: DesignAgentResult): TurnOutcome {
         payload: { nodeCount: result.nodeCount, edgeCount: result.edgeCount, decisions: result.decisions },
         phase: "COMPLETE",
         brief: result.brief,
+      };
+    case "reply":
+      // No phase or brief: a text answer leaves the session where it was, so a proposed plan stays generatable.
+      return {
+        kind: "TEXT",
+        status: "COMPLETE",
+        content: result.reply,
+        payload: { reply: result.reply },
       };
   }
 }

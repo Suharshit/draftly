@@ -1541,3 +1541,22 @@ Update this file whenever the current phase, active feature, or implementation s
       - Signed-out requests to the three spec routes are stopped by Clerk (307).
     - Not yet verified: the Specs tab in a signed-in browser (button, stages, auto-download, Download link), Mermaid
       rendering on GitHub, and the ref-stripping fix in a live run.
+
+### Production fixes (2026-09-16)
+
+- **Missing migrations in production:** project creation, AI sessions, and spec generation all failed with Prisma
+  `P2022` (`Project.specMdPath` does not exist). The production database (Prisma Postgres) had only the first two
+  migrations; `add_ai_sessions` and `add_project_spec` were applied with `prisma migrate deploy` (run manually).
+  Nothing applies migrations on deploy yet — open follow-up (CI job or build step).
+- **Design agent plan schema:** `designPlanSchema` required at least one component while the plan prompt tells the
+  model to list only components to add, so "add to the existing canvas" turns failed with "response did not match
+  schema" on both attempts. The model now fills `designPlanDraftSchema` (no non-empty rules); `sanitizePlanDraft`
+  drops unnamed components and incomplete decisions, fills a missing role, responsibility, or summary, and returns
+  null when nothing is left, which aborts the run with `PLAN_NOTHING_TO_ADD_MESSAGE` (shown to the user as is).
+  `withSchemaRetry` now logs finish reason, validation cause, and the start of the response for both attempts.
+- **Auth:** GitHub/Google SSO errors from `signIn.sso` / `signUp.sso` are now logged and shown on the card instead of
+  being ignored. Production still runs on Clerk development keys (`pk_test_`) — a production instance needs a custom
+  domain.
+- `lib/prisma.ts` Accelerate URL check fixed (`prisma+postgres://`).
+- Validation: `pnpm typecheck` and eslint on changed files passed; sanitizer checked on empty and partial drafts.
+  Not yet verified: an "add components" AI turn in production after the Trigger.dev deploy.

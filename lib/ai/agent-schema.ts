@@ -106,41 +106,70 @@ export const turnAnalysisSchema = z.object({
 export type TurnAnalysis = z.infer<typeof turnAnalysisSchema>;
 
 export const planDecisionSchema = z.object({
-  title: z.string().min(1).describe("The question the decision answers, e.g. 'Primary datastore'."),
-  choice: z.string().min(1).describe("What was chosen."),
-  rationale: z.string().min(1).describe("Why, tied to the brief."),
-  alternatives: z
-    .array(z.string())
-    .describe(atMost(LIST_LIMITS.alternatives, "Realistic options that were not chosen.")),
+  title: z.string().min(1),
+  choice: z.string().min(1),
+  rationale: z.string().min(1),
+  alternatives: z.array(z.string()),
 });
 
 export type PlanDecision = z.infer<typeof planDecisionSchema>;
 
+/** A stored plan. Plans reach this shape only through {@link sanitizePlanDraft}. */
 export const designPlanSchema = z.object({
-  summary: z.string().min(1).describe("Two or three sentences describing the architecture."),
+  summary: z.string().min(1),
+  components: z
+    .array(z.object({ name: z.string().min(1), role: z.string().min(1), responsibility: z.string().min(1) }))
+    .min(1),
+  flows: z.array(z.string()),
+  decisions: z.array(planDecisionSchema),
+  assumptions: z.array(z.string()),
+});
+
+export type DesignPlan = z.infer<typeof designPlanSchema>;
+
+/**
+ * What the model returns when drafting a plan. Like the list limits, the
+ * non-empty rules are not enforced here: the plan prompt tells the model to
+ * list only components to add, so a request that adds nothing new came back
+ * with no components and failed the schema on every attempt. Empty values are
+ * handled by {@link sanitizePlanDraft} instead.
+ */
+export const designPlanDraftSchema = z.object({
+  summary: z.string().describe("Two or three sentences describing the architecture."),
   components: z
     .array(
       z.object({
-        name: z.string().min(1).describe("Short unique component name, used verbatim on the diagram."),
+        name: z.string().describe("Short unique component name, used verbatim on the diagram."),
         role: z
           .string()
-          .min(1)
           .describe("One or two word kind: Client, Gateway, Service, Worker, Queue, Cache, Database, External."),
-        responsibility: z.string().min(1).describe("What it does, in one sentence."),
+        responsibility: z.string().describe("What it does, in one sentence."),
       }),
     )
-    .min(1)
     .describe(atMost(LIST_LIMITS.components, "The components to draw.")),
   flows: z
     .array(z.string())
     .describe(atMost(LIST_LIMITS.flows, "Key request or data flows, each written as 'A → B → C: purpose'.")),
   decisions: z
-    .array(planDecisionSchema)
+    .array(
+      z.object({
+        title: z.string().describe("The question the decision answers, e.g. 'Primary datastore'."),
+        choice: z.string().describe("What was chosen."),
+        rationale: z.string().describe("Why, tied to the brief."),
+        alternatives: z
+          .array(z.string())
+          .describe(atMost(LIST_LIMITS.alternatives, "Realistic options that were not chosen.")),
+      }),
+    )
     .describe(atMost(LIST_LIMITS.decisions, "The major architectural choices, most consequential first.")),
   assumptions: z.array(z.string()).describe(atMost(LIST_LIMITS.assumptions, "Assumptions the plan depends on.")),
 });
 
-export type DesignPlan = z.infer<typeof designPlanSchema>;
+export type DesignPlanDraft = z.infer<typeof designPlanDraftSchema>;
+
+/** Shown when a drafted plan has no components to draw. */
+export const PLAN_NOTHING_TO_ADD_MESSAGE =
+  "The plan didn't include any new components to add. Say which components you want added or changed.";
 
 /** Output of one design-agent run. The server validates it before storing it. */
 export const designAgentResultSchema = z.discriminatedUnion("action", [
@@ -188,6 +217,46 @@ export function clampQuestions(questions: readonly ClarifyQuestion[]): ClarifyQu
     ...question,
     options: question.options.slice(0, LIST_LIMITS.questionOptions),
   }));
+}
+
+function nonEmpty(values: readonly string[]): string[] {
+  return values.map((value) => value.trim()).filter(Boolean);
+}
+
+/**
+ * Turns a model draft into a storable plan: drops unnamed components and
+ * incomplete decisions, fills a missing role, responsibility, or summary, and
+ * returns null when no component is left to draw.
+ */
+export function sanitizePlanDraft(draft: DesignPlanDraft): DesignPlan | null {
+  const components = draft.components
+    .map((component) => ({
+      name: component.name.trim(),
+      role: component.role.trim() || "Service",
+      responsibility: component.responsibility.trim() || component.name.trim(),
+    }))
+    .filter((component) => component.name.length > 0);
+
+  if (components.length === 0) {
+    return null;
+  }
+
+  const decisions = draft.decisions
+    .map((decision) => ({
+      title: decision.title.trim(),
+      choice: decision.choice.trim(),
+      rationale: decision.rationale.trim(),
+      alternatives: nonEmpty(decision.alternatives),
+    }))
+    .filter((decision) => decision.title && decision.choice && decision.rationale);
+
+  return {
+    summary: draft.summary.trim() || `Adds ${components.map((component) => component.name).join(", ")}.`,
+    components,
+    flows: nonEmpty(draft.flows),
+    decisions,
+    assumptions: nonEmpty(draft.assumptions),
+  };
 }
 
 export function clampPlan(plan: DesignPlan): DesignPlan {

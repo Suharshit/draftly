@@ -110,11 +110,16 @@ export function SignInCard({ redirectUrl }: { redirectUrl?: string }) {
 
   async function handleSso(strategy: SsoStrategy) {
     setLocalError(null);
-    await signIn.sso({
+    const { error } = await signIn.sso({
       strategy,
       redirectUrl: toSafeDestination(redirectUrl),
       redirectCallbackUrl: SSO_CALLBACK_PATH,
     });
+    // A failed redirect otherwise leaves the button doing nothing, with no message anywhere.
+    if (error) {
+      console.error("SSO sign-in failed", error);
+      setLocalError(messageOf(error as AuthMessage) ?? "Couldn't start sign-in. Please try again.");
+    }
   }
 
   async function handleIdentifier() {

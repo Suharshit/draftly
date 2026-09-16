@@ -20,7 +20,7 @@ const SKILLS = [
 ] as const
 
 const CONTACT_LINKS = [
-  { label: "GitHub", href: "https://github.com" },
+  { label: "GitHub", href: "https://github.com/Suharshit/draftly" },
   { label: "Docs", href: "/docs" },
   { label: "Email", href: "mailto:hello@draftly.app" },
 ]
